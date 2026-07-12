@@ -40,8 +40,21 @@ const SUPABASE_ANON_KEY = "sb_publishable_FG4uMY7J89S77riOVb0K7w_ja_nXvgf";
 const MASTER_EMAIL = "michihari.natori.note@gmail.com";
 // ================================================================
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabaseのタブ間ロック機構（navigator.locks）は、まれに認証処理が
+// 永久に応答しなくなる既知の不具合があるため無効化する（このアプリはタブ間同期が不要）
+const noOpLock = async (_name, _acquireTimeout, fn) => fn();
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { lock: noOpLock },
+});
 const { useState, useEffect, useMemo } = React;
+
+// Promiseが一定時間内に終わらない場合にフォールバックするためのヘルパー
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 // 依存ライブラリなしの棒グラフ（SVG手書き。外部チャートライブラリを使わないため確実に表示される）
 function SimpleBarChart({ data }) {
@@ -148,10 +161,11 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: { session } } = await sb.auth.getSession();
+        const result = await withTimeout(sb.auth.getSession(), 8000, null);
+        const session = result && result.data ? result.data.session : null;
         if (session && session.user) {
           setUser({ id: session.user.id, email: session.user.email });
-          await loadData(session.user.id);
+          await withTimeout(loadData(session.user.id), 8000, null);
         }
       } catch (e) { /* セッションなし */ }
       setLoaded(true);
@@ -162,7 +176,17 @@ function App() {
   const signup = async () => {
     setAuthBusy(true);
     setAuthMsg("");
-    const { data: res, error } = await sb.auth.signUp({ email: authEmail.trim(), password: authPass });
+    const result = await withTimeout(
+      sb.auth.signUp({ email: authEmail.trim(), password: authPass }),
+      10000,
+      { data: null, error: null, timedOut: true }
+    );
+    if (result.timedOut) {
+      setAuthMsg("応答がありませんでした。通信環境をご確認のうえ、もう一度お試しください。");
+      setAuthBusy(false);
+      return;
+    }
+    const { data: res, error } = result;
     if (error) {
       setAuthMsg(error.message.includes("already") ? "このメールアドレスは既に登録されています" : `登録に失敗しました: ${error.message}`);
     } else if (res.session && res.user) {
@@ -179,7 +203,17 @@ function App() {
   const login = async () => {
     setAuthBusy(true);
     setAuthMsg("");
-    const { data: res, error } = await sb.auth.signInWithPassword({ email: authEmail.trim(), password: authPass });
+    const result = await withTimeout(
+      sb.auth.signInWithPassword({ email: authEmail.trim(), password: authPass }),
+      10000,
+      { data: null, error: null, timedOut: true }
+    );
+    if (result.timedOut) {
+      setAuthMsg("応答がありませんでした。通信環境をご確認のうえ、もう一度お試しください。");
+      setAuthBusy(false);
+      return;
+    }
+    const { data: res, error } = result;
     if (error) {
       setAuthMsg("メールアドレスまたはパスワードが違います");
     } else if (res.user) {
@@ -191,7 +225,7 @@ function App() {
   };
 
   const logout = async () => {
-    await sb.auth.signOut();
+    await withTimeout(sb.auth.signOut(), 5000, null);
     setUser(null);
     setData(emptyData);
     setTab("log");
