@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f172a" />
+<title>読書記録</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; background: #f5f5f4; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+
+// ================================================================
+// ★ セットアップ: 下の2行をあなたのSupabaseプロジェクトの値に書き換えてください
+// （Supabaseダッシュボード → Settings → API で確認できます）
+// ================================================================
+const SUPABASE_URL = "https://ここを書き換え.supabase.co";
+const SUPABASE_ANON_KEY = "ここをanonキーに書き換え";
+
+const MASTER_EMAIL = "michihari.natori.note@gmail.com";
+// ================================================================
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const { useState, useEffect, useMemo } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = Recharts;
+
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const fmtDate = (s) => {
+  const [y, m, d] = s.split("-");
+  return `${y}年${Number(m)}月${Number(d)}日`;
+};
+const SPINE_COLORS = ["#2c4a6e", "#7a3b3b", "#3d5c46", "#6b5433", "#4a3d66", "#365e63", "#7a5460", "#54626e"];
+const spineColor = (id) => SPINE_COLORS[Math.abs(String(id).split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % SPINE_COLORS.length];
+const emptyData = { books: [], sessions: [], comments: [], goal: 0 };
+
+function App() {
+  const [user, setUser] = useState(null); // { id, email }
+  const [authMode, setAuthMode] = useState("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
+  const [data, setData] = useState(emptyData);
+  const [loaded, setLoaded] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
+  const [tab, setTab] = useState("log");
+  const [selectedBookId, setSelectedBookId] = useState(null);
+
+  const [logBookId, setLogBookId] = useState("");
+  const [startPage, setStartPage] = useState("");
+  const [endPage, setEndPage] = useState("");
+  const [logMsg, setLogMsg] = useState("");
+  const [goalInput, setGoalInput] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newAuthor, setNewAuthor] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [range, setRange] = useState("week");
+
+  const isMaster = user && user.email === MASTER_EMAIL;
+  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  // ---- データ読み込み ----
+  const loadData = async (uid) => {
+    const { data: row, error } = await sb.from("reading_data").select("data").eq("user_id", uid).maybeSingle();
+    if (!error && row && row.data) {
+      setData({ ...emptyData, ...row.data });
+    } else {
+      setData(emptyData);
+    }
+  };
+
+  // ---- セッション復元（ログイン状態の保持） ----
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session && session.user) {
+          setUser({ id: session.user.id, email: session.user.email });
+          await loadData(session.user.id);
+        }
+      } catch (e) { /* セッションなし */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  // ---- 認証 ----
+  const signup = async () => {
+    setAuthBusy(true);
+    setAuthMsg("");
+    const { data: res, error } = await sb.auth.signUp({ email: authEmail.trim(), password: authPass });
+    if (error) {
+      setAuthMsg(error.message.includes("already") ? "このメールアドレスは既に登録されています" : `登録に失敗しました: ${error.message}`);
+    } else if (res.session && res.user) {
+      setUser({ id: res.user.id, email: res.user.email });
+      setData(emptyData);
+      await sb.from("reading_data").upsert({ user_id: res.user.id, email: res.user.email, data: emptyData });
+      setAuthPass("");
+    } else {
+      setAuthMsg("確認メールを送信しました。メール内のリンクをクリックしてからログインしてください。");
+    }
+    setAuthBusy(false);
+  };
+
+  const login = async () => {
+    setAuthBusy(true);
+    setAuthMsg("");
+    const { data: res, error } = await sb.auth.signInWithPassword({ email: authEmail.trim(), password: authPass });
+    if (error) {
+      setAuthMsg("メールアドレスまたはパスワードが違います");
+    } else if (res.user) {
+      setUser({ id: res.user.id, email: res.user.email });
+      await loadData(res.user.id);
+      setAuthPass("");
+    }
+    setAuthBusy(false);
+  };
+
+  const logout = async () => {
+    await sb.auth.signOut();
+    setUser(null);
+    setData(emptyData);
+    setTab("log");
+    setSelectedBookId(null);
+  };
+
+  // ---- 保存 ----
+  const save = async (next) => {
+    setData(next);
+    if (!user) return;
+    const { error } = await sb.from("reading_data").upsert({
+      user_id: user.id,
+      email: user.email,
+      data: next,
+      updated_at: new Date().toISOString(),
+    });
+    setSaveErr(error ? "保存に失敗しました。通信環境を確認してください。" : "");
+  };
+
+  // ---- 操作 ----
+  const addBook = () => {
+    if (!newTitle.trim() || !newAuthor.trim()) return;
+    const book = { id: Date.now().toString(), title: newTitle.trim(), author: newAuthor.trim() };
+    save({ ...data, books: [...data.books, book] });
+    setNewTitle("");
+    setNewAuthor("");
+  };
+
+  const addSession = (bookIdArg) => {
+    const bookId = bookIdArg || logBookId;
+    const s = parseInt(startPage, 10);
+    const e = parseInt(endPage, 10);
+    if (!bookId) { setLogMsg("本を選んでください"); return; }
+    if (isNaN(s) || isNaN(e)) { setLogMsg("ページ数を入力してください"); return; }
+    if (e < s) { setLogMsg("読み終わりは読み始め以上のページにしてください"); return; }
+    const pages = e - s;
+    const session = { id: Date.now().toString(), bookId, date: todayStr(), startPage: s, endPage: e, pages };
+    save({ ...data, sessions: [...data.sessions, session] });
+    setStartPage("");
+    setEndPage("");
+    const book = data.books.find((b) => b.id === bookId);
+    setLogMsg(`「${book ? book.title : ""}」を ${pages} ページ読みました`);
+  };
+
+  const saveGoal = () => {
+    const g = parseInt(goalInput, 10);
+    if (isNaN(g) || g < 0) return;
+    save({ ...data, goal: g });
+    setGoalInput("");
+  };
+
+  const deleteSession = (id) => save({ ...data, sessions: data.sessions.filter((s) => s.id !== id) });
+
+  const addComment = (bookId) => {
+    if (!commentText.trim()) return;
+    const c = { id: Date.now().toString(), bookId, text: commentText.trim(), date: todayStr() };
+    save({ ...data, comments: [...data.comments, c] });
+    setCommentText("");
+  };
+
+  const deleteComment = (id) => save({ ...data, comments: data.comments.filter((c) => c.id !== id) });
+
+  const deleteBook = (id) => {
+    save({
+      ...data,
+      books: data.books.filter((b) => b.id !== id),
+      sessions: data.sessions.filter((s) => s.bookId !== id),
+      comments: data.comments.filter((c) => c.bookId !== id),
+    });
+    setSelectedBookId(null);
+  };
+
+  // ---- 管理（マスターのみ） ----
+  const loadAccounts = async () => {
+    setAdminLoading(true);
+    const { data: rows, error } = await sb.from("reading_data").select("user_id, email, data");
+    if (!error && rows) {
+      setAdminAccounts(rows.map((r) => {
+        const d = { ...emptyData, ...(r.data || {}) };
+        return {
+          userId: r.user_id,
+          email: r.email,
+          books: d.books.length,
+          pages: d.sessions.reduce((a, s) => a + s.pages, 0),
+          comments: d.comments.length,
+        };
+      }));
+    } else {
+      setAdminAccounts([]);
+    }
+    setAdminLoading(false);
+  };
+
+  const deleteAccountData = async (userId, email) => {
+    if (email === MASTER_EMAIL) return;
+    const { error } = await sb.from("reading_data").delete().eq("user_id", userId);
+    if (!error) setAdminAccounts((prev) => prev.filter((a) => a.userId !== userId));
+  };
+
+  // ---- 集計 ----
+  const todayTotal = useMemo(
+    () => data.sessions.filter((s) => s.date === todayStr()).reduce((a, s) => a + s.pages, 0),
+    [data.sessions]
+  );
+  const goalMet = data.goal > 0 && todayTotal >= data.goal;
+
+  const dailyTotals = useMemo(() => {
+    const map = {};
+    data.sessions.forEach((s) => { map[s.date] = (map[s.date] || 0) + s.pages; });
+    return map;
+  }, [data.sessions]);
+
+  const chartData = useMemo(() => {
+    const now = new Date();
+    if (range === "week" || range === "month") {
+      const days = range === "week" ? 7 : 30;
+      return Array.from({ length: days }, (_, i) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - (days - 1 - i));
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return { label: `${d.getMonth() + 1}/${d.getDate()}`, pages: dailyTotals[key] || 0 };
+      });
+    }
+    const year = now.getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}月`, pages: 0 }));
+    Object.entries(dailyTotals).forEach(([date, pages]) => {
+      const [y, m] = date.split("-").map(Number);
+      if (y === year) months[m - 1].pages += pages;
+    });
+    return months;
+  }, [range, dailyTotals]);
+
+  const rangeTotal = chartData.reduce((a, d) => a + d.pages, 0);
+  const bookPages = (bookId) => data.sessions.filter((s) => s.bookId === bookId).reduce((a, s) => a + s.pages, 0);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return data.comments;
+    return data.comments.filter((c) => {
+      const book = data.books.find((b) => b.id === c.bookId);
+      return (
+        c.text.toLowerCase().includes(q) ||
+        (book && (book.title.toLowerCase().includes(q) || book.author.toLowerCase().includes(q)))
+      );
+    });
+  }, [searchQuery, data.comments, data.books]);
+
+  const selectedBook = data.books.find((b) => b.id === selectedBookId);
+
+  if (!loaded) {
+    return <div className="min-h-screen flex items-center justify-center text-stone-500">読み込み中…</div>;
+  }
+
+  // ============ ログイン画面 ============
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="text-4xl mb-2">📖</div>
+            <h1 className="text-2xl font-bold text-stone-100 tracking-wide">読書記録</h1>
+          </div>
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex mb-5 bg-stone-100 rounded-lg p-1">
+              {[["login", "ログイン"], ["signup", "新規登録"]].map(([id, label]) => (
+                <button key={id} onClick={() => { setAuthMode(id); setAuthMsg(""); }}
+                  className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors ${authMode === id ? "bg-white shadow-sm text-slate-900" : "text-stone-500"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-stone-600 mb-1">メールアドレス</label>
+                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" className="w-full border border-stone-300 rounded-lg px-3 py-2.5" />
+              </div>
+              <div>
+                <label className="block text-sm text-stone-600 mb-1">パスワード（6文字以上）</label>
+                <input type="password" value={authPass} onChange={(e) => setAuthPass(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (authMode === "login" ? login() : signup())}
+                  placeholder="••••••••" className="w-full border border-stone-300 rounded-lg px-3 py-2.5" />
+              </div>
+              <button onClick={authMode === "login" ? login : signup} disabled={authBusy}
+                className="w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors disabled:opacity-50">
+                {authBusy ? "処理中…" : authMode === "login" ? "ログイン" : "アカウントを作成"}
+              </button>
+              {authMsg && <p className="text-sm text-red-600">{authMsg}</p>}
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 text-center mt-4">アカウントごとに読書データが保存され、どの端末からログインしても続きから記録できます。</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ============ メイン画面 ============
+  const tabs = [
+    { id: "log", label: "✏️ 記録する" },
+    { id: "shelf", label: "📚 本棚" },
+    { id: "stats", label: "📈 統計" },
+    { id: "comments", label: "🔍 コメント検索" },
+    ...(isMaster ? [{ id: "admin", label: "🛡 管理" }] : []),
+  ];
+
+  return (
+    <div className="min-h-screen text-stone-800">
+      <header className="bg-slate-900 text-stone-100">
+        <div className="max-w-3xl mx-auto px-4 py-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-wide">読書記録</h1>
+            <button onClick={logout} className="text-xs text-slate-400 hover:text-white mt-0.5">
+              {user.email}（ログアウト）
+              {isMaster && <span className="ml-1 bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold">マスター</span>}
+            </button>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400">今日の合計{data.goal ? `（目標 ${data.goal}ページ）` : ""}</div>
+            <div className={`text-2xl font-bold ${goalMet ? "text-emerald-400" : "text-amber-400"}`}>
+              {todayTotal}<span className="text-sm font-normal text-slate-300 ml-1">ページ</span>
+            </div>
+          </div>
+        </div>
+        <nav className="max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button key={t.id}
+                onClick={() => { setTab(t.id); setSelectedBookId(null); if (t.id === "admin") loadAccounts(); }}
+                className={`px-3 py-2 text-sm rounded-t-lg transition-colors whitespace-nowrap shrink-0 ${active ? "bg-stone-100 text-slate-900 font-semibold" : "text-slate-300 hover:text-white"}`}>
+                {t.label}
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 py-6">
+        {saveErr && <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{saveErr}</p>}
+
+        {tab === "log" && (
+          <div className="space-y-6">
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-lg mb-4">読んだページを記録</h2>
+              {data.books.length === 0 ? (
+                <p className="text-stone-500 text-sm">まず「本棚」タブで本を登録してください。</p>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-stone-600 mb-1">本を選ぶ</label>
+                    <select value={logBookId} onChange={(e) => setLogBookId(e.target.value)} className="w-full border border-stone-300 rounded-lg px-3 py-2 bg-white">
+                      <option value="">— 選択してください —</option>
+                      {data.books.map((b) => (
+                        <option key={b.id} value={b.id}>{b.title}（{b.author}）</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-stone-600 mb-1">読み始め</label>
+                      <input type="number" min="0" value={startPage} onChange={(e) => setStartPage(e.target.value)} placeholder="例: 24" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-stone-600 mb-1">読み終わり</label>
+                      <input type="number" min="0" value={endPage} onChange={(e) => setEndPage(e.target.value)} placeholder="例: 58" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                    </div>
+                  </div>
+                  {startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && (
+                    <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">この記録で <span className="font-bold">{parseInt(endPage) - parseInt(startPage)}</span> ページ読んだことになります</p>
+                  )}
+                  <button onClick={() => addSession()} className="w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors">＋ 記録を保存</button>
+                  {logMsg && <p className="text-sm text-emerald-700">{logMsg}</p>}
+                </div>
+              )}
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold mb-3">目標</h2>
+              {data.goal ? (
+                <div className="mb-3">
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className={`text-lg font-bold ${goalMet ? "text-emerald-600" : "text-slate-800"}`}>{todayTotal} / {data.goal} ページ</span>
+                    <span className="text-xs text-stone-500">{Math.min(100, Math.round((todayTotal / data.goal) * 100))}%</span>
+                  </div>
+                  <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${goalMet ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${Math.min(100, (todayTotal / data.goal) * 100)}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-stone-500 text-sm mb-3">一日の目標ページ数を設定すると、達成状況が表示されます。</p>
+              )}
+              <div className="flex gap-2">
+                <input type="number" min="1" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder={data.goal ? `現在の目標: ${data.goal}ページ` : "例: 30"} className="flex-1 border border-stone-300 rounded-lg px-3 py-2" />
+                <button onClick={saveGoal} className="bg-slate-900 text-white rounded-lg px-4 font-semibold hover:bg-slate-700">{data.goal ? "変更" : "設定"}</button>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold mb-3">今日の記録（{fmtDate(todayStr())}）</h2>
+              {data.sessions.filter((s) => s.date === todayStr()).length === 0 ? (
+                <p className="text-stone-500 text-sm">まだ記録がありません。</p>
+              ) : (
+                <ul className="divide-y divide-stone-100">
+                  {data.sessions.filter((s) => s.date === todayStr()).map((s) => {
+                    const b = data.books.find((x) => x.id === s.bookId);
+                    return (
+                      <li key={s.id} className="py-2.5 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-1.5 h-8 rounded-sm shrink-0" style={{ backgroundColor: b ? spineColor(b.id) : "#999" }} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{b ? b.title : "（削除された本）"}</div>
+                            <div className="text-xs text-stone-500">p.{s.startPage} → p.{s.endPage}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="font-bold text-slate-800">{s.pages}<span className="text-xs font-normal text-stone-500">ページ</span></span>
+                          <button onClick={() => deleteSession(s.id)} className="text-stone-400 hover:text-red-600 text-xs">削除</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+        )}
+
+        {tab === "shelf" && !selectedBook && (
+          <div className="space-y-6">
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-lg mb-4">本を登録</h2>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-sm text-stone-600 mb-1">タイトル</label>
+                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="例: 吾輩は猫である" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm text-stone-600 mb-1">著者名</label>
+                  <input value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} placeholder="例: 夏目漱石" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              <button onClick={addBook} className="w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors">本棚に追加</button>
+            </section>
+
+            <section>
+              <h2 className="font-bold mb-3 text-stone-700">登録済みの本（{data.books.length}冊）</h2>
+              {data.books.length === 0 ? (
+                <p className="text-stone-500 text-sm bg-white rounded-xl p-5">まだ本がありません。上のフォームから登録しましょう。</p>
+              ) : (
+                <div className="grid gap-3">
+                  {data.books.map((b) => {
+                    const total = bookPages(b.id);
+                    const cCount = data.comments.filter((c) => c.bookId === b.id).length;
+                    return (
+                      <button key={b.id} onClick={() => setSelectedBookId(b.id)} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow w-full">
+                        <span className="w-2.5 h-14 rounded-sm shrink-0" style={{ backgroundColor: spineColor(b.id) }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold truncate">{b.title}</div>
+                          <div className="text-sm text-stone-500 truncate">{b.author}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-slate-800">{total}<span className="text-xs font-normal text-stone-500">ページ</span></div>
+                          <div className="text-xs text-stone-400">💬 {cCount}件</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {tab === "shelf" && selectedBook && (
+          <div className="space-y-5">
+            <button onClick={() => setSelectedBookId(null)} className="text-sm text-slate-600 hover:text-slate-900">← 本棚に戻る</button>
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <div className="flex items-start gap-3">
+                <span className="w-3 h-16 rounded-sm shrink-0" style={{ backgroundColor: spineColor(selectedBook.id) }} />
+                <div className="flex-1">
+                  <h2 className="font-bold text-xl">{selectedBook.title}</h2>
+                  <p className="text-stone-500">{selectedBook.author}</p>
+                  <p className="mt-2 text-slate-800 font-semibold">累計 {bookPages(selectedBook.id)} ページ</p>
+                </div>
+                <button onClick={() => deleteBook(selectedBook.id)} className="text-stone-400 hover:text-red-600 text-sm">削除</button>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="font-bold mb-3">この本の読書を記録</h3>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-sm text-stone-600 mb-1">読み始め</label>
+                  <input type="number" min="0" value={startPage} onChange={(e) => setStartPage(e.target.value)} placeholder="例: 24" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm text-stone-600 mb-1">読み終わり</label>
+                  <input type="number" min="0" value={endPage} onChange={(e) => setEndPage(e.target.value)} placeholder="例: 58" className="w-full border border-stone-300 rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              {startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && (
+                <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 mb-3">この記録で <span className="font-bold">{parseInt(endPage) - parseInt(startPage)}</span> ページ読んだことになります</p>
+              )}
+              <button onClick={() => addSession(selectedBook.id)} className="w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors">＋ 記録を保存</button>
+              {logMsg && <p className="text-sm text-emerald-700 mt-2">{logMsg}</p>}
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="font-bold mb-3">この本へのコメント</h3>
+              <div className="mb-4">
+                <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="感想・メモを書く…" rows={4} className="w-full border border-stone-300 rounded-lg px-3 py-2.5 resize-y leading-relaxed" />
+                <button onClick={() => addComment(selectedBook.id)} className="mt-2 bg-slate-900 text-white rounded-lg px-5 py-2 font-semibold hover:bg-slate-700">コメントを追加</button>
+              </div>
+              {data.comments.filter((c) => c.bookId === selectedBook.id).length === 0 ? (
+                <p className="text-stone-500 text-sm">まだコメントがありません。</p>
+              ) : (
+                <ul className="space-y-2">
+                  {data.comments.filter((c) => c.bookId === selectedBook.id).slice().reverse().map((c) => (
+                    <li key={c.id} className="bg-stone-50 rounded-lg px-3 py-2.5 flex justify-between gap-2">
+                      <div>
+                        <p className="text-sm whitespace-pre-wrap">{c.text}</p>
+                        <p className="text-xs text-stone-400 mt-1">{fmtDate(c.date)}</p>
+                      </div>
+                      <button onClick={() => deleteComment(c.id)} className="text-stone-300 hover:text-red-600 shrink-0 self-start text-xs">削除</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="font-bold mb-3">読書履歴</h3>
+              {data.sessions.filter((s) => s.bookId === selectedBook.id).length === 0 ? (
+                <p className="text-stone-500 text-sm">まだ記録がありません。</p>
+              ) : (
+                <ul className="divide-y divide-stone-100">
+                  {data.sessions.filter((s) => s.bookId === selectedBook.id).slice().reverse().map((s) => (
+                    <li key={s.id} className="py-2 flex justify-between text-sm">
+                      <span className="text-stone-600">{fmtDate(s.date)}　p.{s.startPage} → p.{s.endPage}</span>
+                      <span className="font-semibold">{s.pages}ページ</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        )}
+
+        {tab === "stats" && (
+          <div className="space-y-5">
+            <div className="flex gap-2">
+              {[["week", "週間"], ["month", "月間"], ["year", "年間"]].map(([id, label]) => (
+                <button key={id} onClick={() => setRange(id)} className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${range === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 hover:bg-stone-200"}`}>{label}</button>
+              ))}
+            </div>
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className="font-bold text-lg">{range === "week" ? "直近7日間" : range === "month" ? "直近30日間" : `${new Date().getFullYear()}年（月別）`}</h2>
+                <p className="text-sm text-stone-500">合計 <span className="font-bold text-slate-800 text-lg">{rangeTotal}</span> ページ</p>
+              </div>
+              <div style={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer>
+                  <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#78716c" }} interval={range === "month" ? 4 : 0} />
+                    <YAxis tick={{ fontSize: 11, fill: "#78716c" }} allowDecimals={false} />
+                    <Tooltip formatter={(v) => [`${v} ページ`, "読了"]} labelStyle={{ color: "#1c1917" }} />
+                    <Bar dataKey="pages" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {tab === "comments" && (
+          <div className="space-y-5">
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="🔍 コメント・タイトル・著者名で検索…" className="w-full border border-stone-300 rounded-xl px-4 py-3 bg-white shadow-sm" />
+            <p className="text-sm text-stone-500">{searchResults.length}件のコメント</p>
+            {searchResults.length === 0 ? (
+              <p className="text-stone-500 text-sm bg-white rounded-xl p-5">該当するコメントがありません。</p>
+            ) : (
+              <ul className="space-y-3">
+                {searchResults.slice().reverse().map((c) => {
+                  const b = data.books.find((x) => x.id === c.bookId);
+                  return (
+                    <li key={c.id} className="bg-white rounded-xl shadow-sm p-4 flex gap-3">
+                      <span className="w-2 rounded-sm shrink-0" style={{ backgroundColor: b ? spineColor(b.id) : "#999" }} />
+                      <div className="min-w-0">
+                        <p className="text-sm whitespace-pre-wrap">{c.text}</p>
+                        <p className="text-xs text-stone-400 mt-1.5">
+                          <span className="font-semibold text-stone-500">{b ? `${b.title}（${b.author}）` : "（削除された本）"}</span>　{fmtDate(c.date)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {tab === "admin" && isMaster && (
+          <div className="space-y-5">
+            <section className="bg-white rounded-xl shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-lg">アカウント管理</h2>
+                <button onClick={loadAccounts} className="text-sm text-slate-600 hover:text-slate-900 bg-stone-100 hover:bg-stone-200 rounded-lg px-3 py-1.5">{adminLoading ? "読み込み中…" : "更新"}</button>
+              </div>
+              {adminLoading ? (
+                <p className="text-stone-500 text-sm">読み込み中…</p>
+              ) : adminAccounts.length === 0 ? (
+                <p className="text-stone-500 text-sm">登録済みのアカウントがありません。</p>
+              ) : (
+                <ul className="divide-y divide-stone-100">
+                  {adminAccounts.map((a) => (
+                    <li key={a.userId} className="py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {a.email}
+                          {a.email === MASTER_EMAIL && <span className="ml-1.5 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-semibold">マスター</span>}
+                        </div>
+                        <div className="text-xs text-stone-500 mt-0.5">{a.books}冊 ・ 累計{a.pages}ページ ・ コメント{a.comments}件</div>
+                      </div>
+                      {a.email !== MASTER_EMAIL && (
+                        <button onClick={() => deleteAccountData(a.userId, a.email)} className="text-stone-400 hover:text-red-600 text-xs shrink-0">データ削除</button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-xs text-stone-400 mt-4">「データ削除」はその利用者の読書データを削除します。アカウント自体の削除はSupabaseダッシュボードのAuthentication画面から行えます。マスターアカウントのデータは削除できません。</p>
+            </section>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
