@@ -195,6 +195,9 @@ function App() {
       });
     } else {
       setData(emptyData);
+      if (error) {
+        setSaveErr(`データの読み込みに失敗しました: ${error.message}${error.code ? "（コード: " + error.code + "）" : ""}`);
+      }
     }
   };
 
@@ -245,11 +248,16 @@ function App() {
         email: res.user.email
       });
       setData(emptyData);
-      await sb.from("reading_data").upsert({
+      const {
+        error: initErr
+      } = await sb.from("reading_data").upsert({
         user_id: res.user.id,
         email: res.user.email,
         data: emptyData
       });
+      if (initErr) {
+        setSaveErr(`初期データの保存に失敗しました: ${initErr.message}${initErr.code ? "（コード: " + initErr.code + "）" : ""}`);
+      }
       setAuthPass("");
     } else {
       setAuthMsg("確認メールを送信しました。メール内のリンクをクリックしてからログインしてください。");
@@ -308,7 +316,7 @@ function App() {
       data: next,
       updated_at: new Date().toISOString()
     });
-    setSaveErr(error ? "保存に失敗しました。通信環境を確認してください。" : "");
+    setSaveErr(error ? `保存に失敗しました: ${error.message}${error.code ? "（コード: " + error.code + "）" : ""}` : "");
   };
 
   // ---- 操作 ----
