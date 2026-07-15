@@ -9,8 +9,11 @@
 <title>読書記録</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script>window.React || document.write('<script crossorigin src="https:\/\/cdn.jsdelivr.net\/npm\/react@18\/umd\/react.production.min.js"><\/script>')</script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script>window.ReactDOM || document.write('<script crossorigin src="https:\/\/cdn.jsdelivr.net\/npm\/react-dom@18\/umd\/react-dom.production.min.js"><\/script>')</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>window.supabase || document.write('<script src="https:\/\/unpkg.com\/@supabase\/supabase-js@2"><\/script>')</script>
 <style>
   body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; background: #f5f5f4; }
 </style>
@@ -24,7 +27,21 @@
     var box = document.getElementById('fatal-error');
     if (!box) return;
     box.style.display = 'block';
-    box.textContent = 'エラーが発生しました。このメッセージのスクリーンショットを共有してください:\n\n' + (e.message || String(e.error));
+    var msg = e.message || String(e.error);
+    // React/ReactDOM/Supabaseの読み込み自体に失敗した場合は、再読み込みを促す専用の案内を出す
+    if (/React|Supabase|supabase/.test(msg) && /not defined/.test(msg)) {
+      box.innerHTML = '';
+      var text = document.createElement('div');
+      text.textContent = '必要な部品の読み込みに失敗しました。通信環境が不安定だった可能性があります。下のボタンで再読み込みしてください。';
+      box.appendChild(text);
+      var btn = document.createElement('button');
+      btn.textContent = '再読み込み';
+      btn.style.cssText = 'margin-top:12px;background:#1e293b;color:white;padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;';
+      btn.onclick = function () { location.reload(); };
+      box.appendChild(btn);
+    } else {
+      box.textContent = 'エラーが発生しました。このメッセージのスクリーンショットを共有してください:\n\n' + msg;
+    }
   });
 </script>
 <script>
@@ -178,6 +195,7 @@ function App() {
   const [commentText, setCommentText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [range, setRange] = useState("week");
+  const [shelfFilter, setShelfFilter] = useState("all");
   const isMaster = user && user.email === MASTER_EMAIL;
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
@@ -325,7 +343,9 @@ function App() {
     const book = {
       id: Date.now().toString(),
       title: newTitle.trim(),
-      author: newAuthor.trim()
+      author: newAuthor.trim(),
+      status: "reading",
+      finishedDate: null
     };
     save({
       ...data,
@@ -408,6 +428,14 @@ function App() {
     });
     setSelectedBookId(null);
   };
+  const setBookStatus = (id, status) => save({
+    ...data,
+    books: data.books.map(b => b.id === id ? {
+      ...b,
+      status,
+      finishedDate: status === "finished" ? todayStr() : null
+    } : b)
+  });
 
   // ---- 管理（マスターのみ） ----
   const loadAccounts = async () => {
@@ -493,6 +521,9 @@ function App() {
     });
   }, [searchQuery, data.comments, data.books]);
   const selectedBook = data.books.find(b => b.id === selectedBookId);
+  const filteredBooks = data.books.filter(b => shelfFilter === "all" ? true : (b.status || "reading") === shelfFilter);
+  const readingCount = data.books.filter(b => (b.status || "reading") === "reading").length;
+  const finishedCount = data.books.filter(b => (b.status || "reading") === "finished").length;
   if (!loaded) {
     return /*#__PURE__*/React.createElement("div", {
       className: "min-h-screen flex items-center justify-center text-stone-500"
@@ -751,15 +782,24 @@ function App() {
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: addBook,
     className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
-  }, "本棚に追加")), /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold mb-3 text-stone-700"
-  }, "登録済みの本（", data.books.length, "冊）"), data.books.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }, "本棚に追加")), /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "font-bold text-stone-700"
+  }, "登録済みの本（", data.books.length, "冊）"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1"
+  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setShelfFilter(id),
+    className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${shelfFilter === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-100"}`
+  }, label)))), filteredBooks.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-stone-500 text-sm bg-white rounded-xl p-5"
-  }, "まだ本がありません。上のフォームから登録しましょう。") : /*#__PURE__*/React.createElement("div", {
+  }, data.books.length === 0 ? "まだ本がありません。上のフォームから登録しましょう。" : "この条件に合う本はありません。") : /*#__PURE__*/React.createElement("div", {
     className: "grid gap-3"
-  }, data.books.map(b => {
+  }, filteredBooks.map(b => {
     const total = bookPages(b.id);
     const cCount = data.comments.filter(c => c.bookId === b.id).length;
+    const status = b.status || "reading";
     return /*#__PURE__*/React.createElement("button", {
       key: b.id,
       onClick: () => setSelectedBookId(b.id),
@@ -772,8 +812,12 @@ function App() {
     }), /*#__PURE__*/React.createElement("div", {
       className: "flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("div", {
       className: "font-semibold truncate"
-    }, b.title), /*#__PURE__*/React.createElement("div", {
+    }, b.title), /*#__PURE__*/React.createElement("span", {
+      className: `shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${status === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
+    }, status === "finished" ? "読了" : "読書中")), /*#__PURE__*/React.createElement("div", {
       className: "text-sm text-stone-500 truncate"
     }, b.author)), /*#__PURE__*/React.createElement("div", {
       className: "text-right shrink-0"
@@ -804,7 +848,16 @@ function App() {
     className: "font-bold text-xl"
   }, selectedBook.title), /*#__PURE__*/React.createElement("p", {
     className: "text-stone-500"
-  }, selectedBook.author), /*#__PURE__*/React.createElement("p", {
+  }, selectedBook.author), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center flex-wrap gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: `text-xs font-semibold px-2 py-0.5 rounded ${(selectedBook.status || "reading") === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
+  }, (selectedBook.status || "reading") === "finished" ? "読了" : "読書中"), (selectedBook.status || "reading") === "finished" && selectedBook.finishedDate && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-stone-400"
+  }, fmtDate(selectedBook.finishedDate), "に読了"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setBookStatus(selectedBook.id, (selectedBook.status || "reading") === "finished" ? "reading" : "finished"),
+    className: `text-xs font-semibold px-2.5 py-1 rounded-lg border ${(selectedBook.status || "reading") === "finished" ? "border-stone-300 text-stone-600 hover:bg-stone-50" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`
+  }, (selectedBook.status || "reading") === "finished" ? "読書中に戻す" : "読了にする")), /*#__PURE__*/React.createElement("p", {
     className: "mt-2 text-slate-800 font-semibold"
   }, "累計 ", bookPages(selectedBook.id), " ページ")), /*#__PURE__*/React.createElement("button", {
     onClick: () => deleteBook(selectedBook.id),
