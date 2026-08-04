@@ -53,7 +53,7 @@ const SUPABASE_URL = "https://tstbqfkwnpntabdmksfm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_FG4uMY7J89S77riOVb0K7w_ja_nXvgf";
 const MASTER_EMAIL = "michihari.natori.note@gmail.com";
 // 「全体」の平均を計算するときの起算日（記録を始めた日）。変更したい場合はここを書き換える
-const RECORD_START_DATE = "2026-07-01";
+const RECORD_START_DATE = "2026-07-13";
 const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "雑学"];
 const GENRE_COLORS = {
   "小説": "#2c4a6e",
@@ -448,6 +448,9 @@ function App() {
     setPeriodType(t);
     setSelectedPeriod(t === "month" ? todayStr().slice(0, 7) : todayStr().slice(0, 4));
   };
+  const [editingBook, setEditingBook] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAuthor, setEditAuthor] = useState("");
   const setBookGenre = (id, genre) => save({
     ...data,
     books: data.books.map(b => b.id === id ? {
@@ -455,6 +458,23 @@ function App() {
       genre
     } : b)
   });
+  const startEditBook = b => {
+    setEditTitle(b.title);
+    setEditAuthor(b.author);
+    setEditingBook(true);
+  };
+  const saveEditBook = id => {
+    if (!editTitle.trim() || !editAuthor.trim()) return;
+    save({
+      ...data,
+      books: data.books.map(b => b.id === id ? {
+        ...b,
+        title: editTitle.trim(),
+        author: editAuthor.trim()
+      } : b)
+    });
+    setEditingBook(false);
+  };
   const setBookStatus = (id, status) => save({
     ...data,
     books: data.books.map(b => b.id === id ? {
@@ -633,6 +653,8 @@ function App() {
       if (!stats[g]) stats[g] = { genre: g, books: 0, pages: 0 };
       return stats[g];
     };
+    // 6ジャンルは記録がなくても必ず表示する
+    GENRES.forEach(g => ensure(g));
     data.books.forEach(b => {
       if ((b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod)) {
         ensure(b.genre || "未分類").books += 1;
@@ -644,8 +666,14 @@ function App() {
       ensure(book ? book.genre || "未分類" : "未分類").pages += s.pages;
     });
     return Object.values(stats)
-      .filter(x => x.books > 0 || x.pages > 0)
-      .sort((a, b) => b.pages - a.pages || b.books - a.books);
+      .filter(x => GENRES.includes(x.genre) || x.books > 0 || x.pages > 0)
+      .sort((a, b) => {
+        const ia = GENRES.indexOf(a.genre), ib = GENRES.indexOf(b.genre);
+        if (ia === -1 && ib === -1) return 0;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
   }, [data.books, data.sessions, selectedPeriod]);
 
   const periodPages = genreStats.reduce((a, g) => a + g.pages, 0);
@@ -954,7 +982,10 @@ function App() {
     const status = b.status || "reading";
     return /*#__PURE__*/React.createElement("button", {
       key: b.id,
-      onClick: () => setSelectedBookId(b.id),
+      onClick: () => {
+        setSelectedBookId(b.id);
+        setEditingBook(false);
+      },
       className: "bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow w-full"
     }, /*#__PURE__*/React.createElement("span", {
       className: "w-2.5 h-14 rounded-sm shrink-0",
@@ -983,7 +1014,10 @@ function App() {
   })))), tab === "shelf" && selectedBook && /*#__PURE__*/React.createElement("div", {
     className: "space-y-5"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setSelectedBookId(null),
+    onClick: () => {
+      setSelectedBookId(null);
+      setEditingBook(false);
+    },
     className: "text-sm text-slate-600 hover:text-slate-900"
   }, "← 本棚に戻る"), /*#__PURE__*/React.createElement("section", {
     className: "bg-white rounded-xl shadow-sm p-5"
@@ -996,11 +1030,41 @@ function App() {
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1"
+  }, editingBook ? /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-stone-500 mb-1"
+  }, "タイトル"), /*#__PURE__*/React.createElement("input", {
+    value: editTitle,
+    onChange: e => setEditTitle(e.target.value),
+    className: "w-full border border-stone-300 rounded-lg px-3 py-2 font-bold"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-stone-500 mb-1"
+  }, "著者名"), /*#__PURE__*/React.createElement("input", {
+    value: editAuthor,
+    onChange: e => setEditAuthor(e.target.value),
+    onKeyDown: e => e.key === "Enter" && saveEditBook(selectedBook.id),
+    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => saveEditBook(selectedBook.id),
+    className: "bg-slate-900 text-white rounded-lg px-4 py-1.5 text-sm font-semibold hover:bg-slate-700"
+  }, "保存"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditingBook(false),
+    className: "text-stone-500 hover:text-stone-800 text-sm px-2"
+  }, "キャンセル"))) : /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "font-bold text-xl"
   }, selectedBook.title), /*#__PURE__*/React.createElement("p", {
     className: "text-stone-500"
-  }, selectedBook.author, selectedBook.genre ? ` ・ ${selectedBook.genre}` : ""), /*#__PURE__*/React.createElement("div", {
+  }, selectedBook.author, selectedBook.genre ? ` ・ ${selectedBook.genre}` : "")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEditBook(selectedBook),
+    className: "text-xs text-slate-600 hover:text-slate-900 border border-stone-300 rounded-lg px-2 py-1 shrink-0"
+  }, "編集")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center flex-wrap gap-2 mt-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: `text-xs font-semibold px-2 py-0.5 rounded ${(selectedBook.status || "reading") === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
@@ -1207,12 +1271,13 @@ function App() {
     className: "text-xs text-stone-500 shrink-0"
   }, fmtDate(b.finishedDate))))), /*#__PURE__*/React.createElement("h3", {
     className: "font-bold text-sm text-stone-700 mb-2"
-  }, "ジャンル別"), genreStats.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }, "ジャンル別"), periodPages === 0 && finishedInPeriod.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-stone-500 text-sm"
   }, "この期間の記録はありません。") : /*#__PURE__*/React.createElement("ul", {
     className: "space-y-2.5"
   }, genreStats.map(g => /*#__PURE__*/React.createElement("li", {
-    key: g.genre
+    key: g.genre,
+    className: g.pages === 0 && g.books === 0 ? "opacity-40" : ""
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between text-sm mb-1"
   }, /*#__PURE__*/React.createElement("span", {
