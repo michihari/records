@@ -1,1381 +1,2184 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="theme-color" content="#0f172a" />
-<title>読書記録</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script>window.React || document.write('<script crossorigin src="https:\/\/cdn.jsdelivr.net\/npm\/react@18\/umd\/react.production.min.js"><\/script>')</script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script>window.ReactDOM || document.write('<script crossorigin src="https:\/\/cdn.jsdelivr.net\/npm\/react-dom@18\/umd\/react-dom.production.min.js"><\/script>')</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>window.supabase || document.write('<script src="https:\/\/unpkg.com\/@supabase\/supabase-js@2"><\/script>')</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>執筆帖</title>
+
+<!-- ===== スマホでアプリのように開くための設定（PWA） ===== -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="執筆帖">
+<meta name="theme-color" content="#F5F7F5">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" href="./icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+
+<!-- 先に接続だけ済ませておく（データベース・部品・フォント） -->
+<link rel="preconnect" href="https://tstbqfkwnpntabdmksfm.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- 必須の部品は先読みしつつ、画面の表示を止めない（defer） -->
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0" as="script" crossorigin>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0"></script>
+
+<!-- フォントは後から差し替え（読み込み完了を待たずに画面を出す） -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+
+<!-- グラフの部品は統計を開いたときに読み込む（起動時には不要） -->
+
 <style>
-  body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; background: #f5f5f4; }
+:root{
+  --kiri:#F5F7F5;            /* 霧がかった生成り（背景） */
+  --shiro:#FFFFFF;
+  --sumi:#3A423F;            /* やわらかい墨色（文字） */
+  --sumi-soft:#6E7A76;
+  --kaze:#4E8B84;            /* 風 — 青緑 */
+  --kaze-deep:#3E736D;
+  --kaze-mist:rgba(78,139,132,.1);
+  --michi:#B8A990;           /* 道 — 砂色 */
+  --michi-soft:rgba(184,169,144,.16);
+  --aka:#D95F55;             /* 未達の赤 */
+  --aka-mist:rgba(217,95,85,.1);
+  --ai:#2B4570;              /* 藍 — 俳句 */
+  --ai-mist:rgba(43,69,112,.1);
+  --midori:#4E9C72;          /* 達成の緑 */
+  --line:rgba(58,66,63,.1);
+  --radius:18px;
+  --shadow:0 2px 14px rgba(58,66,63,.06);
+  --maru:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+  --gothic:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  font-family:var(--gothic);
+  background:var(--kiri);
+  color:var(--sumi);
+  min-height:100dvh;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M-50 620 C 250 560 420 700 700 640 S 1100 560 1300 620' fill='none' stroke='%234E8B84' stroke-opacity='.08' stroke-width='70' stroke-linecap='round'/%3E%3Cpath d='M-50 660 C 250 600 420 740 700 680 S 1100 600 1300 660' fill='none' stroke='%23B8A990' stroke-opacity='.12' stroke-width='3' stroke-dasharray='1 14' stroke-linecap='round'/%3E%3Cpath d='M780 120 C 880 90 960 130 1060 100' fill='none' stroke='%234E8B84' stroke-opacity='.12' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M820 160 C 900 135 970 165 1040 145' fill='none' stroke='%234E8B84' stroke-opacity='.08' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-attachment:fixed;
+  background-size:cover;
+}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:1rem;color:var(--sumi)}
+
+/* ===== 共通部品 ===== */
+.card{
+  background:var(--shiro);
+  border:none;
+  border-radius:var(--radius);
+  padding:1.25rem 1.3rem;
+  margin-bottom:1rem;
+  box-shadow:var(--shadow);
+}
+.card h2{
+  font-family:var(--maru);font-weight:700;font-size:1.02rem;
+  margin-bottom:1rem;display:flex;align-items:center;gap:.55rem;color:var(--sumi);
+}
+.card h2::before{content:"";display:inline-block;width:1.1rem;height:.3rem;background:var(--kaze);border-radius:99px;opacity:.85}
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:.78rem;color:var(--sumi-soft);margin-bottom:.35rem;letter-spacing:.05em}
+.field input,.field select,.field textarea{
+  width:100%;padding:.7rem .85rem;border:1.5px solid var(--line);
+  border-radius:12px;background:var(--kiri);outline:none;transition:border-color .15s, background .15s;
+}
+.field textarea{resize:none;line-height:1.8;min-height:6.2rem;overflow-y:auto;max-height:14rem}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--kaze);background:#fff;box-shadow:0 0 0 3px var(--kaze-mist)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.75rem 1.4rem;border-radius:999px;border:1.5px solid transparent;
+  font-size:.93rem;font-weight:700;letter-spacing:.04em;transition:filter .15s, transform .1s;
+}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{opacity:.85}
+.btn:focus-visible{outline:2px solid var(--kaze);outline-offset:2px}
+.btn-primary{background:var(--kaze);color:#fff}
+.btn-shu{background:var(--sumi);color:#fff}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--sumi-soft)}
+.btn-block{width:100%}
+.btn-sm{padding:.38rem .8rem;font-size:.78rem}
+.tag{
+  display:inline-block;font-size:.7rem;padding:.18rem .6rem;border-radius:999px;
+  border:none;color:var(--kaze-deep);background:var(--kaze-mist);font-weight:500;
+}
+.tag-haiku{color:var(--ai);background:var(--ai-mist)}
+.muted{color:var(--sumi-soft);font-size:.85rem}
+.err{color:var(--aka);font-size:.85rem;margin-top:.5rem;min-height:1.2em}
+.ok{color:var(--midori);font-size:.85rem;margin-top:.5rem}
+.hidden{display:none!important}
+#upd-toast{
+  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 1rem);transform:translateX(-50%);
+  z-index:200;background:var(--sumi);color:#fff;font-size:.82rem;
+  padding:.6rem .9rem .6rem 1.1rem;border-radius:999px;display:flex;align-items:center;gap:.7rem;
+  box-shadow:0 6px 20px rgba(58,66,63,.25);white-space:nowrap;
+}
+#upd-toast button{background:var(--kaze);color:#fff;border:none;border-radius:999px;padding:.35rem .8rem;font-size:.8rem;font-weight:700}
+.ver{text-align:center;font-size:.68rem;color:var(--sumi-soft);opacity:.7;margin-top:.9rem}
+
+/* ===== ログイン画面 ===== */
+#auth-screen{
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:calc(env(safe-area-inset-top) + 1.5rem) 1.5rem calc(env(safe-area-inset-bottom) + 1.5rem);
+  overflow-y:auto;
+}
+.auth-box{width:100%;max-width:400px;margin:auto}
+/* 入力を確実に受け付ける（アプリ形式で開いた場合の対策） */
+input,textarea,select{font-size:16px}   /* 16px未満だと拡大や不具合の原因になる */
+.auth-title{
+  font-family:var(--maru);text-align:center;margin-bottom:1.8rem;
+  font-size:2.4rem;font-weight:700;letter-spacing:.3em;text-indent:.3em;color:var(--sumi);
+}
+.auth-tabs{display:flex;margin-bottom:1.1rem;background:var(--kiri);border-radius:999px;padding:.25rem}
+.auth-tabs button{
+  flex:1;background:none;border:none;padding:.55rem;font-size:.88rem;color:var(--sumi-soft);
+  border-radius:999px;transition:background .15s;
+}
+.auth-tabs button.active{color:var(--kaze-deep);background:#fff;font-weight:700;box-shadow:0 1px 5px rgba(58,66,63,.08)}
+
+/* ===== トップバー ===== */
+.topbar{
+  background:rgba(245,247,245,.92);backdrop-filter:blur(8px);
+  padding:calc(.65rem + env(safe-area-inset-top)) .95rem .55rem;
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+}
+.brand-wrap{display:flex;flex-direction:column;gap:.12rem;min-width:0}
+.brand{font-family:var(--maru);font-weight:700;font-size:1.15rem;letter-spacing:.26em;line-height:1.2;color:var(--sumi)}
+.who{font-size:.66rem;color:var(--sumi-soft);display:flex;align-items:center;gap:.4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.master-badge{background:var(--michi);color:#fff;font-size:.6rem;padding:.08rem .4rem;border-radius:99px;letter-spacing:.08em;flex-shrink:0}
+.top-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.topbar .lo{background:none;border:1.5px solid var(--line);color:var(--sumi-soft);border-radius:999px;padding:.28rem .65rem;font-size:.7rem}
+
+/* 今日の進捗バッジ */
+.goal-badge{
+  border:none;border-radius:14px;padding:.4rem .75rem;color:#fff;
+  background:var(--aka);text-align:right;line-height:1.15;min-width:5.4rem;
+  transition:background .3s;box-shadow:var(--shadow);
+}
+.goal-badge.met{background:var(--midori)}
+.goal-badge.none{background:#fff;color:var(--sumi-soft);border:1.5px solid var(--line);box-shadow:none}
+.goal-badge .g-num{font-family:var(--maru);font-weight:700;font-size:1.02rem;display:block}
+.goal-badge .g-num small{font-size:.62rem;font-weight:400;margin-left:.1rem}
+.goal-badge .g-sub{font-size:.58rem;opacity:.92;display:block;letter-spacing:.03em}
+
+/* 上部タブ */
+.tabbar{
+  position:sticky;top:0;z-index:30;
+  background:rgba(245,247,245,.92);backdrop-filter:blur(8px);
+  display:flex;gap:.3rem;padding:.45rem .6rem .6rem;
+  border-bottom:1px solid var(--line);
+}
+.tabbar button{
+  flex:1;background:none;border:none;color:var(--sumi-soft);
+  padding:.55rem 0;font-size:.84rem;letter-spacing:.06em;
+  font-family:var(--maru);font-weight:500;border-radius:999px;
+  transition:background .15s,color .15s;
+}
+.tabbar button.active{color:#fff;background:var(--kaze);font-weight:700}
+main{max-width:760px;margin:0 auto;padding:1.4rem 1rem 3rem}
+
+.page-title{
+  font-family:var(--maru);font-size:1.3rem;font-weight:700;letter-spacing:.18em;
+  padding-bottom:.55rem;margin-bottom:1.15rem;display:inline-block;color:var(--sumi);
+  background:linear-gradient(to right, var(--michi) 0 2px, transparent 2px 12px) bottom left/12px 3px repeat-x;
+}
+
+/* 目標の入力欄 */
+.goal-fields{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.input-unit{position:relative}
+.input-unit input{padding-right:2.2rem}
+.input-unit span{
+  position:absolute;right:.9rem;top:50%;transform:translateY(-50%);
+  font-size:.82rem;color:var(--sumi-soft);pointer-events:none;
+}
+
+/* 目標ボタン（設定後はパラメータ表示） */
+.goal-btn{
+  width:100%;display:block;text-align:left;margin-bottom:1rem;
+  background:transparent;border:1.5px solid var(--line);border-radius:999px;
+  padding:.75rem 1.4rem;color:var(--sumi-soft);font-size:.93rem;font-weight:700;
+  letter-spacing:.04em;transition:background .15s,border-radius .15s,padding .15s;
+}
+.goal-btn:active{opacity:.9}
+.goal-btn:focus-visible{outline:2px solid var(--kaze);outline-offset:2px}
+.goal-btn.set{
+  background:var(--shiro);border-color:transparent;box-shadow:var(--shadow);
+  border-radius:var(--radius);padding:.95rem 1.15rem;color:var(--sumi);
+}
+.goal-btn-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.goal-btn.set .goal-btn-head{margin-bottom:.7rem}
+.goal-btn-edit{font-size:.74rem;font-weight:500;color:var(--kaze-deep)}
+.goal-btn-params{display:flex;flex-direction:column;gap:.55rem}
+.gp-row{display:grid;grid-template-columns:3.2rem 1fr auto;align-items:center;gap:.6rem}
+.gp-name{font-size:.75rem;font-weight:500;color:var(--sumi-soft)}
+.gp-bar{height:7px;border-radius:99px;background:var(--michi-soft);overflow:hidden}
+.gp-bar i{display:block;height:100%;border-radius:99px;background:var(--aka);transition:width .4s ease}
+.gp-bar i.met{background:var(--midori)}
+.gp-val{font-size:.76rem;font-weight:500;color:var(--sumi-soft);white-space:nowrap}
+.gp-val b{font-family:var(--maru);font-size:.92rem;color:var(--sumi);font-weight:700}
+
+/* 記録リスト */
+.rec-list{list-style:none}
+.rec-list li{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:.7rem .2rem;border-bottom:1px solid var(--line);
+}
+.rec-list li:last-child{border-bottom:none}
+.rec-main{display:flex;flex-direction:column;gap:.22rem;min-width:0}
+.rec-main .t1{font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-main .t2{font-size:.74rem;color:var(--sumi-soft);font-family:var(--maru)}
+.rec-amt{font-family:var(--maru);font-weight:700;white-space:nowrap}
+.rec-amt small{font-size:.7rem;color:var(--sumi-soft);margin-left:.15rem}
+
+/* 統計 */
+.period-tabs{display:flex;gap:.35rem;margin-bottom:1rem;background:#fff;border-radius:999px;padding:.28rem;box-shadow:var(--shadow)}
+.period-tabs button{
+  flex:1;min-width:4rem;padding:.5rem 0;border-radius:999px;border:none;
+  background:none;color:var(--sumi-soft);font-size:.84rem;letter-spacing:.08em;transition:background .15s,color .15s;
+}
+.period-tabs button.active{background:var(--kaze);color:#fff;font-weight:700}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1rem}
+.stat-cell{background:#fff;border:none;border-radius:var(--radius);padding:.9rem 1rem;box-shadow:var(--shadow)}
+.stat-cell.haiku{background:linear-gradient(var(--ai-mist),var(--ai-mist)),#fff}
+.stat-cell .lbl{font-size:.68rem;color:var(--sumi-soft);letter-spacing:.08em}
+.stat-cell .num{font-family:var(--maru);font-size:1.5rem;font-weight:700;margin-top:.25rem}
+.stat-cell .num small{font-size:.72rem;font-weight:400;color:var(--sumi-soft);margin-left:.2rem}
+.chart-wrap{position:relative;height:260px}
+.list-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.list-table th{text-align:left;font-size:.7rem;color:var(--sumi-soft);font-weight:500;padding:.4rem .3rem;border-bottom:1.5px solid var(--line);letter-spacing:.08em}
+.list-table td{padding:.6rem .3rem;border-bottom:1px solid var(--line)}
+.list-table td.num{text-align:right;font-family:var(--maru);font-weight:700;white-space:nowrap}
+.list-table tr:last-child td{border-bottom:none}
+
+
+/* 書斎：絞り込み */
+.filter-row{display:flex;gap:.35rem;background:var(--kiri);border-radius:999px;padding:.28rem}
+.filter-row button{
+  flex:1;padding:.5rem 0;border-radius:999px;border:none;background:none;
+  color:var(--sumi-soft);font-size:.84rem;letter-spacing:.06em;transition:background .15s,color .15s;
+}
+.filter-row button.active{background:#fff;color:var(--kaze-deep);font-weight:700;box-shadow:0 1px 5px rgba(58,66,63,.08)}
+
+
+/* ジャンルのタッチ選択 */
+.chip-row{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip-row button{
+  padding:.45rem .95rem;border-radius:999px;border:1.5px solid var(--line);
+  background:#fff;color:var(--sumi-soft);font-size:.84rem;transition:background .15s,color .15s,border-color .15s;
+}
+.chip-row button.active{background:var(--kaze);border-color:var(--kaze);color:#fff;font-weight:700}
+
+/* 作品カード（コンパクト・タップで開く） */
+.work-card{
+  width:100%;text-align:left;display:block;
+  background:var(--shiro);border:none;border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:.85rem 1rem .8rem;margin-bottom:.6rem;
+  border-left:4px solid var(--kaze);cursor:pointer;
+  transition:transform .1s;
+}
+.work-card:active{opacity:.85}
+.work-card:focus-visible{outline:2px solid var(--kaze);outline-offset:2px}
+.work-card.done{border-left-color:var(--michi)}
+.work-top{display:flex;align-items:center;justify-content:space-between;gap:.7rem}
+.work-card .name{
+  font-family:var(--maru);font-weight:700;font-size:1.05rem;line-height:1.45;
+  color:var(--sumi);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.status-chip{
+  flex-shrink:0;font-size:.66rem;font-weight:700;padding:.2rem .6rem;border-radius:999px;
+  background:var(--kaze-mist);color:var(--kaze-deep);
+}
+.status-chip.done{background:var(--michi-soft);color:#8A7A5F}
+.work-meta{
+  display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+  font-size:.76rem;color:var(--sumi-soft);margin-top:.42rem;
+}
+.work-meta b{font-family:var(--maru);color:var(--sumi)}
+.today-add{color:var(--midori);font-weight:700}
+.cm-count{color:var(--kaze-deep);font-weight:700}
+
+/* 作品の数値表示 */
+.work-figs{display:flex;gap:1.3rem;flex-wrap:wrap;margin-bottom:.2rem}
+.work-figs .fig{display:flex;flex-direction:column;gap:.1rem}
+.work-figs .fig .k{font-size:.68rem;color:var(--sumi-soft);letter-spacing:.05em}
+.work-figs .fig .v{font-family:var(--maru);font-weight:700;font-size:1.05rem}
+.work-figs .fig .v small{font-size:.68rem;font-weight:400;color:var(--sumi-soft);margin-left:.12rem}
+.work-figs .fig.today .v{color:var(--midori)}
+
+/* 作品詳細：見出し行 */
+.wm-titlerow{display:flex;align-items:baseline;justify-content:space-between;gap:.7rem}
+.wm-titlerow .t{min-width:0;overflow-wrap:anywhere;font-size:1.42rem;line-height:1.4}
+
+/* 作品詳細：小さめの状態切り替え */
+#wm-status-tabs{display:inline-flex;gap:.25rem;padding:.2rem;width:auto}
+#wm-status-tabs button{flex:0 0 auto;padding:.3rem .85rem;font-size:.75rem}
+
+/* 開始 → 終了 の入力 */
+.range-row{display:flex;align-items:center;gap:.5rem}
+.range-row input{
+  flex:1;min-width:0;padding:.7rem .85rem;border:1.5px solid var(--line);
+  border-radius:12px;background:#fff;outline:none;text-align:center;
+}
+.range-row input:focus{border-color:var(--kaze);box-shadow:0 0 0 3px var(--kaze-mist)}
+.range-row .arrow{flex-shrink:0;color:var(--sumi-soft);font-size:1rem}
+.calc{
+  margin-top:.45rem;font-size:.82rem;color:var(--sumi-soft);min-height:1.3em;
+  display:flex;align-items:baseline;gap:.3rem;
+}
+.calc b{font-family:var(--maru);font-size:1.15rem;font-weight:700;color:var(--kaze-deep)}
+.calc.zero b{color:var(--sumi-soft)}
+.calc.minus b{color:var(--aka)}
+.range-hint{font-size:.72rem;color:var(--sumi-soft);margin-top:.3rem}
+
+/* 作品詳細：数追加の行 */
+.wm-addrow{display:flex;gap:.5rem}
+.wm-addrow input{
+  flex:1;min-width:0;padding:.7rem .85rem;border:1.5px solid var(--line);
+  border-radius:12px;background:#fff;outline:none;
+}
+.wm-addrow input:focus{border-color:var(--kaze);box-shadow:0 0 0 3px var(--kaze-mist)}
+.wm-addrow .btn{flex-shrink:0}
+
+/* コメント */
+.comment-item{padding:.8rem 0;border-bottom:1px solid var(--line)}
+.comment-item:last-child{border-bottom:none}
+.comment-item .head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.38rem}
+.comment-item .src{display:flex;align-items:center;gap:.45rem;min-width:0;flex-wrap:wrap}
+.comment-item .wname{font-family:var(--maru);font-weight:700;font-size:.9rem}
+.comment-item .when{font-size:.72rem;color:var(--sumi-soft)}
+.comment-item .body{font-size:.92rem;line-height:1.9;white-space:pre-wrap}
+.comment-item .cm-btns{display:flex;gap:.3rem;flex-shrink:0}
+.tap-edit{cursor:text;border-radius:10px;padding:.25rem .45rem;margin:0 -.45rem;transition:background .15s}
+.tap-edit:hover{background:rgba(78,139,132,.06)}
+.tap-edit:active{background:var(--kaze-mist)}
+.cm-edit{margin-top:.4rem}
+.cm-edit-area{
+  width:100%;padding:.7rem .85rem;border:1.5px solid var(--kaze);border-radius:12px;
+  background:#fff;outline:none;line-height:1.8;resize:none;min-height:5.5rem;max-height:14rem;
+  box-shadow:0 0 0 3px var(--kaze-mist);
+}
+.cm-edit-btns{display:flex;gap:.4rem;margin-top:.5rem}
+
+/* コメント：種別・タグ */
+.kind-tabs{display:inline-flex;gap:.25rem;padding:.2rem;width:auto;margin-bottom:.55rem}
+.kind-tabs button{flex:0 0 auto;padding:.32rem .95rem;font-size:.78rem}
+.idea-tags{align-items:center}
+.idea-tags button{padding:.32rem .75rem;font-size:.76rem}
+.idea-tags .tag-note{font-size:.74rem;color:var(--sumi-soft)}
+.mix-btn{
+  margin-left:auto;
+  background:linear-gradient(120deg,var(--kaze),#7BAFA8)!important;
+  border-color:transparent!important;color:#fff!important;font-weight:700;
+}
+
+/* To Do */
+.todo-item{display:flex;align-items:flex-start;gap:.65rem;padding:.7rem 0;border-bottom:1px solid var(--line)}
+.todo-item:last-child{border-bottom:none}
+.todo-check{
+  flex-shrink:0;width:1.7rem;height:1.7rem;border-radius:999px;margin-top:.1rem;
+  border:2px solid var(--kaze);background:#fff;color:transparent;
+  display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;
+  transition:background .18s,color .18s,transform .18s;
+}
+.todo-check:active{transform:scale(.9)}
+.todo-item.done .todo-check{background:var(--midori);border-color:var(--midori);color:#fff;animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.6)}55%{transform:scale(1.22)}100%{transform:scale(1)}}
+.todo-body{flex:1;min-width:0}
+.todo-text{font-size:.92rem;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;transition:color .2s}
+.todo-item.done .todo-text{color:var(--sumi-soft);text-decoration:line-through;text-decoration-color:var(--midori);text-decoration-thickness:2px}
+.todo-when{font-size:.7rem;color:var(--sumi-soft);margin-top:.2rem}
+.todo-item .cm-btns{flex-shrink:0;display:flex;gap:.25rem}
+
+/* 完了の紙吹雪 */
+.confetti{position:fixed;z-index:120;width:.5rem;height:.5rem;border-radius:2px;pointer-events:none}
+
+/* ミックス */
+#mix-screen{
+  position:fixed;inset:0;z-index:100;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 50% 108%, rgba(184,169,144,.28), transparent 55%),
+    linear-gradient(#DCE9E7 0%, #EDF3F1 45%, #F5F3EC 100%);
+}
+#mix-canvas{position:absolute;inset:0;width:100%;height:100%}
+#mix-nodes{position:absolute;inset:0}
+.mix-node{
+  position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  border-radius:999px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--maru);font-weight:700;color:var(--sumi);
+  background:rgba(255,255,255,.88);box-shadow:0 4px 16px rgba(58,66,63,.12);
+  border:2px solid transparent;cursor:pointer;user-select:none;-webkit-user-select:none;
+  white-space:nowrap;padding:0 .8rem;transition:opacity .25s,border-color .25s;
+}
+.mix-node.dim{opacity:.22}
+.mix-node.lit{border-color:var(--kaze);box-shadow:0 6px 20px rgba(78,139,132,.35)}
+#mix-close{
+  position:absolute;top:calc(env(safe-area-inset-top) + .9rem);right:.9rem;z-index:110;
+  background:rgba(255,255,255,.9);border:none;border-radius:999px;
+  padding:.5rem 1.05rem;font-size:.85rem;font-weight:700;color:var(--sumi);
+  box-shadow:var(--shadow);
+}
+#mix-hint{
+  position:absolute;top:calc(env(safe-area-inset-top) + 1.15rem);left:1rem;z-index:105;
+  font-size:.72rem;color:var(--sumi-soft);max-width:60%;
+}
+#mix-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;color:var(--sumi-soft);font-size:.95rem;line-height:2;
+}
+
+/* 管理 */
+.acc-item{padding:.9rem .2rem;border-bottom:1px solid var(--line)}
+.acc-item:last-child{border-bottom:none}
+.acc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
+.acc-mail{font-weight:700;font-size:.92rem;overflow-wrap:anywhere}
+.acc-meta{font-size:.74rem;color:var(--sumi-soft);margin-top:.32rem;display:flex;gap:.8rem;flex-wrap:wrap}
+.acc-stats{font-size:.8rem;margin-top:.48rem;display:flex;gap:1rem;flex-wrap:wrap}
+.acc-stats b{font-family:var(--maru)}
+.badge-stop{background:var(--aka-mist);color:var(--aka);font-size:.65rem;padding:.12rem .5rem;border-radius:99px}
+.badge-self{background:var(--kaze-mist);color:var(--kaze-deep);font-size:.65rem;padding:.12rem .5rem;border-radius:99px}
+
+/* モーダル */
+.modal-back{
+  position:fixed;top:0;left:0;right:0;height:var(--vvh, 100dvh);
+  z-index:60;background:rgba(58,66,63,.35);backdrop-filter:blur(2px);
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.modal{
+  background:var(--kiri);width:100%;max-width:560px;overflow-y:auto;
+  max-height:var(--vvh, 100dvh);
+  overscroll-behavior:contain;
+  border-radius:22px 22px 0 0;padding:1.3rem 1.3rem calc(1.3rem + env(safe-area-inset-bottom));
+}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;margin-bottom:1rem}
+.modal-head .t{font-family:var(--maru);font-weight:700;font-size:1.05rem}
+.modal-head .s{font-size:.75rem;color:var(--sumi-soft);margin-top:.28rem}
+.modal-close{background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:.32rem .75rem;font-size:.78rem;color:var(--sumi-soft)}
+.modal h3{font-size:.78rem;color:var(--sumi-soft);letter-spacing:.06em;margin:1.25rem 0 .45rem;font-weight:500}
+.modal .field input,.modal .field textarea{background:#fff}
+
+/* 設定案内 */
+#setup-screen{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.setup-box{max-width:640px;width:100%}
+.setup-box pre{background:var(--sumi);color:var(--kiri);border-radius:12px;padding:1rem;font-size:.75rem;overflow-x:auto;line-height:1.7;margin:.6rem 0 1rem}
+.setup-box h1{font-family:var(--maru);font-size:1.35rem;margin-bottom:.8rem}
+.setup-box ol{padding-left:1.3rem;line-height:2}
+
+@media (min-width:700px){
+  .stat-grid{grid-template-columns:repeat(4,1fr)}
+  .chart-wrap{height:320px}
+  .modal-back{align-items:center;padding:1.5rem}
+  .modal{border-radius:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-<div id="root"><div style="text-align:center;padding:80px 20px;color:#a8a29e;font-family:sans-serif;">読み込み中…</div></div>
-<div id="fatal-error" style="display:none;max-width:560px;margin:40px auto;padding:20px 24px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;color:#991b1b;font-family:sans-serif;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
+
+<!-- ============ 初期設定案内 ============ -->
+<div id="setup-screen" class="hidden">
+  <div class="setup-box card">
+    <h1>執筆帖 — 初期設定</h1>
+    <p class="muted">Supabase プロジェクトの接続情報を設定してください。</p>
+    <ol>
+      <li><a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> でプロジェクトを作成</li>
+      <li>SQL Editor で、同梱の <b>setup.sql</b> を実行</li>
+      <li>Authentication → Providers → Email を有効化</li>
+      <li>Project Settings → API から Project URL と公開キーを取得</li>
+      <li>この HTML ファイルの先頭付近を書き換えて保存
+        <pre>const SUPABASE_URL  = "ここにProject URL";
+const SUPABASE_ANON = "ここに公開キー";</pre>
+      </li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============ ログイン画面 ============ -->
+<div id="auth-screen" class="hidden">
+  <div class="auth-box">
+    <div class="auth-title">執筆帖</div>
+    <div class="card">
+      <div class="auth-tabs">
+        <button id="tab-login" class="active" type="button">ログイン</button>
+        <button id="tab-signup" type="button">新規登録</button>
+      </div>
+      <div class="field">
+        <label for="auth-email">メールアドレス</label>
+        <input id="auth-email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next">
+      </div>
+      <div class="field">
+        <label for="auth-pass">パスワード</label>
+        <input id="auth-pass" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      </div>
+      <button id="auth-submit" class="btn btn-primary btn-block" type="button">ログイン</button>
+      <p id="auth-msg" class="err"></p>
+      <p class="ver">version 2026-09-11 / <span id="ver-mode"></span></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ アプリ本体 ============ -->
+<div id="app-screen" class="hidden">
+  <header class="topbar">
+    <div class="brand-wrap">
+      <span class="brand">執筆帖</span>
+      <span class="who">
+        <span id="who-email"></span>
+        <span id="who-master" class="master-badge hidden">マスター</span>
+      </span>
+    </div>
+    <div class="top-right">
+      <button id="goal-badge" class="goal-badge none" type="button" title="今日の目標を設定">
+        <span class="g-num" id="gb-num">0<small>字</small></span>
+        <span class="g-sub" id="gb-sub">目標を設定</span>
+      </button>
+      <button id="btn-logout" class="lo" type="button">ログアウト</button>
+    </div>
+  </header>
+
+  <nav class="tabbar">
+    <button data-page="record" class="active" type="button">記録する</button>
+    <button data-page="works" type="button">書斎</button>
+    <button data-page="comments" type="button">コメント</button>
+    <button data-page="stats" type="button">統計</button>
+    <button data-page="admin" id="tab-admin" class="hidden" type="button">管理</button>
+  </nav>
+
+  <main>
+    <!-- ===== 記録する ===== -->
+    <section id="page-record">
+      <h1 class="page-title">記録する</h1>
+
+      <div class="card">
+        <h2>本日の執筆</h2>
+        <div class="field">
+          <label for="rec-work">作品</label>
+          <select id="rec-work"></select>
+        </div>
+        <div class="field">
+          <label id="rec-amount-label">文字数</label>
+          <div class="filter-row kind-tabs" id="rec-mode">
+            <button data-m="range" class="active" type="button">開始 → 終了</button>
+            <button data-m="delta" type="button">書いた分</button>
+          </div>
+          <div class="range-row" id="rec-range">
+            <input id="rec-start" type="number" min="0" step="1" inputmode="numeric" aria-label="開始">
+            <span class="arrow">→</span>
+            <input id="rec-end" type="number" min="0" step="1" inputmode="numeric" aria-label="終了">
+          </div>
+          <input id="rec-amount" class="hidden" type="number" min="0" step="1" inputmode="numeric">
+          <p class="calc" id="rec-calc"></p>
+        </div>
+        <button id="btn-save-record" class="btn btn-shu btn-block" type="button">記録する</button>
+        <p id="rec-msg" class="err"></p>
+      </div>
+
+      <button id="btn-open-goal" class="goal-btn" type="button">
+        <span class="goal-btn-head">
+          <span id="goal-btn-title">目標を設定する</span>
+          <span class="goal-btn-edit" id="goal-btn-edit"></span>
+        </span>
+        <span class="goal-btn-params hidden" id="goal-btn-params"></span>
+      </button>
+
+      <div class="card">
+        <h2>本日の記録</h2>
+        <ul id="rec-today-list" class="rec-list"></ul>
+        <p id="rec-today-empty" class="muted">まだ記録がありません。</p>
+      </div>
+    </section>
+
+    <!-- ===== 書斎 ===== -->
+    <section id="page-works" class="hidden">
+      <h1 class="page-title">書斎</h1>
+      <div class="card">
+        <h2>新しい作品をつくる</h2>
+        <div class="field">
+          <label for="work-name">作品名</label>
+          <input id="work-name" type="text">
+        </div>
+        <div class="field">
+          <label>ジャンル</label>
+          <div class="chip-row" id="work-cat-chips">
+            <button data-c="小説" class="active" type="button">小説</button>
+            <button data-c="紀行文" type="button">紀行文</button>
+            <button data-c="哲学" type="button">哲学</button>
+            <button data-c="論文" type="button">論文</button>
+            <button data-c="詩" type="button">詩</button>
+            <button data-c="俳句" type="button">俳句</button>
+          </div>
+          <p class="muted" id="work-cat-note" style="margin-top:.4rem;min-height:1.1em"></p>
+        </div>
+        <button id="btn-add-work" class="btn btn-primary btn-block" type="button">作品をつくる</button>
+        <p id="work-msg" class="err"></p>
+      </div>
+      <div class="card">
+        <h2>作品一覧</h2>
+        <div class="filter-row" id="status-tabs">
+          <button data-s="執筆中" class="active" type="button">執筆中</button>
+          <button data-s="完成" type="button">完成</button>
+          <button data-s="all" type="button">すべて</button>
+        </div>
+        <div class="chip-row" id="cat-filter-chips" style="margin-top:.7rem">
+          <button data-c="all" class="active" type="button">すべて</button>
+          <button data-c="小説" type="button">小説</button>
+          <button data-c="紀行文" type="button">紀行文</button>
+          <button data-c="哲学" type="button">哲学</button>
+          <button data-c="論文" type="button">論文</button>
+          <button data-c="詩" type="button">詩</button>
+          <button data-c="俳句" type="button">俳句</button>
+        </div>
+      </div>
+      <div id="works-list"></div>
+      <p id="works-empty" class="muted" style="padding:.5rem .2rem">まだ作品がありません。上からつくってください。</p>
+    </section>
+
+    <!-- ===== コメント ===== -->
+    <section id="page-comments" class="hidden">
+      <h1 class="page-title">コメント</h1>
+      <div class="card">
+        <h2>絞り込み</h2>
+        <div class="field">
+          <select id="cm-filter"></select>
+        </div>
+        <div class="filter-row kind-tabs" id="cm-kind">
+          <button data-k="アイデア" class="active" type="button">アイデア</button>
+          <button data-k="ToDo" type="button">To Do</button>
+        </div>
+        <div class="chip-row idea-tags" id="cm-tags" style="margin-top:.6rem">
+          <button data-t="all" class="active" type="button">すべて</button>
+          <button data-t="キャラクター" type="button">キャラクター</button>
+          <button data-t="ストーリー" type="button">ストーリー</button>
+          <button data-t="ウィット" type="button">ウィット</button>
+          <button data-t="コンセプト" type="button">コンセプト</button>
+          <button class="mix-btn" id="cm-mix" type="button">ミックス</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>一覧</h2>
+        <div id="comments-list"></div>
+        <p id="comments-empty" class="muted">まだコメントがありません。書斎の各作品から書き残せます。</p>
+      </div>
+    </section>
+
+    <!-- ===== 統計 ===== -->
+    <section id="page-stats" class="hidden">
+      <h1 class="page-title">統計</h1>
+      <div class="period-tabs" id="period-tabs">
+        <button data-p="week" class="active" type="button">週</button>
+        <button data-p="month" type="button">月</button>
+        <button data-p="year" type="button">年間</button>
+        <button data-p="all" type="button">全体</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-cell">
+          <div class="lbl">文字数 合計</div>
+          <div class="num" id="st-char-total">0<small>字</small></div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">文字数 一日平均</div>
+          <div class="num" id="st-char-avg">0<small>字</small></div>
+        </div>
+        <div class="stat-cell haiku">
+          <div class="lbl">俳句 合計</div>
+          <div class="num" id="st-haiku-total">0<small>句</small></div>
+        </div>
+        <div class="stat-cell haiku">
+          <div class="lbl">俳句 一日平均</div>
+          <div class="num" id="st-haiku-avg">0<small>句</small></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>推移</h2>
+        <div class="chart-wrap"><canvas id="stat-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>作品別の内訳</h2>
+        <table class="list-table">
+          <thead><tr><th>作品</th><th>項目</th><th style="text-align:right">量</th></tr></thead>
+          <tbody id="by-work-body"></tbody>
+        </table>
+        <p id="by-work-empty" class="muted">この期間の記録はありません。</p>
+      </div>
+      <div class="card">
+        <h2>項目別の内訳</h2>
+        <table class="list-table">
+          <thead><tr><th>項目</th><th style="text-align:right">量</th></tr></thead>
+          <tbody id="by-cat-body"></tbody>
+        </table>
+        <p id="by-cat-empty" class="muted">この期間の記録はありません。</p>
+      </div>
+    </section>
+
+    <!-- ===== 管理（マスターのみ） ===== -->
+    <section id="page-admin" class="hidden">
+      <h1 class="page-title">管理</h1>
+      <div class="stat-grid">
+        <div class="stat-cell">
+          <div class="lbl">アカウント数</div>
+          <div class="num" id="ad-users">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">作品数</div>
+          <div class="num" id="ad-works">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">総文字数</div>
+          <div class="num" id="ad-chars">0<small>字</small></div>
+        </div>
+        <div class="stat-cell haiku">
+          <div class="lbl">総句数</div>
+          <div class="num" id="ad-haiku">0<small>句</small></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>アカウント一覧</h2>
+        <div id="acc-list"></div>
+        <p id="acc-empty" class="muted">アカウントを読み込めませんでした。setup.sql を最新版で実行済みかご確認ください。</p>
+      </div>
+      <div class="card">
+        <h2>アカウントの削除について</h2>
+        <p class="muted">完全な削除は Supabase ダッシュボードの Authentication → Users から行えます。ここで停止したアカウントは、ログインはできますが記録やコメントを新しく保存できなくなります。</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ ミックス（アイデアの言葉を空に浮かべる） ============ -->
+<div id="mix-screen" class="hidden">
+  <button id="mix-close" type="button">閉じる</button>
+  <div id="mix-hint">風船をタップすると、つながりが浮かび上がります</div>
+  <canvas id="mix-canvas"></canvas>
+  <div id="mix-nodes"></div>
+  <div id="mix-empty" class="hidden">言葉が見つかりません。<br>アイデアをいくつか書き残してから、もう一度どうぞ。</div>
+</div>
+
+<!-- ============ 目標設定モーダル ============ -->
+<div id="goal-modal" class="modal-back hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
+    <div class="modal-head">
+      <div>
+        <div class="t" id="goal-modal-title">今日の目標</div>
+        <div class="s" id="goal-modal-sub"></div>
+      </div>
+      <button class="modal-close" id="goal-modal-close" type="button">閉じる</button>
+    </div>
+    <div class="goal-fields">
+      <div class="field">
+        <label for="goal-chars">文字数の目標</label>
+        <div class="input-unit">
+          <input id="goal-chars" type="number" min="0" step="100" inputmode="numeric">
+          <span>字</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="goal-haiku">句数の目標</label>
+        <div class="input-unit">
+          <input id="goal-haiku" type="number" min="0" step="1" inputmode="numeric">
+          <span>句</span>
+        </div>
+      </div>
+    </div>
+    <p class="muted" style="margin-bottom:.9rem">一度決めた目標は、翌日以降もそのまま引き継がれます。使わないほうは空欄のままで構いません。両方に入れると、どちらも達成したときに緑になります。</p>
+    <button id="goal-modal-save" class="btn btn-primary btn-block" type="button">目標を決める</button>
+    <button id="goal-modal-clear" class="btn btn-ghost btn-block" type="button" style="margin-top:.5rem">目標を取り消す</button>
+    <p id="goal-modal-msg" class="err"></p>
+  </div>
+</div>
+
+<!-- ============ 作品詳細モーダル ============ -->
+<div id="work-modal" class="modal-back hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wm-title">
+    <div class="modal-head">
+      <div style="min-width:0;flex:1">
+        <div class="wm-titlerow">
+          <div class="t" id="wm-title"></div>
+          <span id="wm-genre"></span>
+        </div>
+      </div>
+      <button class="modal-close" id="wm-close" type="button">閉じる</button>
+    </div>
+
+    <div class="filter-row" id="wm-status-tabs" style="margin:-.35rem 0 1.1rem">
+      <button data-s="執筆中" type="button">執筆中</button>
+      <button data-s="完成" type="button">完成</button>
+    </div>
+
+    <div class="work-figs" style="border-top:none;padding-top:0;margin-top:0">
+      <div class="fig">
+        <span class="k">累計</span>
+        <span class="v" id="wm-total"></span>
+      </div>
+      <div class="fig today">
+        <span class="k">本日</span>
+        <span class="v" id="wm-today"></span>
+      </div>
+    </div>
+
+    <h3 id="wm-add-label">文字数を追加</h3>
+    <div class="filter-row kind-tabs" id="wm-mode" style="margin-bottom:.5rem">
+      <button data-m="range" class="active" type="button">開始 → 終了</button>
+      <button data-m="delta" type="button">書いた分</button>
+    </div>
+    <div class="range-row" id="wm-range">
+      <input id="wm-start" type="number" min="0" step="1" inputmode="numeric" aria-label="開始">
+      <span class="arrow">→</span>
+      <input id="wm-end" type="number" min="0" step="1" inputmode="numeric" aria-label="終了">
+    </div>
+    <div class="wm-addrow hidden" id="wm-delta-row">
+      <input id="wm-amount" type="number" min="0" step="1" inputmode="numeric">
+    </div>
+    <p class="calc" id="wm-calc"></p>
+    <button id="wm-add" class="btn btn-primary btn-block" type="button" style="margin-top:.5rem">記録する</button>
+    <p id="wm-add-msg" class="err" style="margin-top:.3rem"></p>
+
+    <h3>執筆履歴</h3>
+    <ul id="wm-history" class="rec-list"></ul>
+    <p id="wm-history-empty" class="muted">まだ記録がありません。</p>
+
+    <h3>コメント</h3>
+    <div class="filter-row kind-tabs" id="wm-cm-kind">
+      <button data-k="アイデア" class="active" type="button">アイデア</button>
+      <button data-k="ToDo" type="button">To Do</button>
+    </div>
+
+    <div class="chip-row idea-tags" id="wm-new-tags" style="margin-bottom:.55rem">
+      <span class="tag-note">タグ：</span>
+      <button data-t="キャラクター" type="button">キャラクター</button>
+      <button data-t="ストーリー" type="button">ストーリー</button>
+      <button data-t="ウィット" type="button">ウィット</button>
+      <button data-t="コンセプト" type="button">コンセプト</button>
+    </div>
+    <div class="field" style="margin-bottom:.55rem">
+      <textarea id="wm-comment" rows="4" enterkeyhint="enter"></textarea>
+    </div>
+    <button id="wm-comment-save" class="btn btn-ghost btn-block" type="button">書き残す</button>
+    <p id="wm-comment-msg" class="err" style="margin-top:.3rem"></p>
+
+    <h3>一覧</h3>
+    <div class="chip-row idea-tags" id="wm-cm-tags" style="margin-bottom:.4rem">
+      <button data-t="all" class="active" type="button">すべて</button>
+      <button data-t="キャラクター" type="button">キャラクター</button>
+      <button data-t="ストーリー" type="button">ストーリー</button>
+      <button data-t="ウィット" type="button">ウィット</button>
+      <button data-t="コンセプト" type="button">コンセプト</button>
+      <button class="mix-btn" id="wm-mix" type="button">ミックス</button>
+    </div>
+    <div id="wm-comments"></div>
+    <p id="wm-comments-empty" class="muted">まだコメントがありません。</p>
+
+    <h3>操作</h3>
+    <div class="work-actions" style="margin-top:.2rem">
+      <button id="wm-rename" class="btn btn-ghost btn-sm" type="button">改題</button>
+      <button id="wm-delete" class="btn btn-ghost btn-sm" type="button">削除</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  // 何かエラーが起きた場合、画面に赤い枠で表示する（サポート用）
-  window.addEventListener('error', function (e) {
-    var box = document.getElementById('fatal-error');
-    if (!box) return;
-    box.style.display = 'block';
-    var msg = e.message || String(e.error);
-    // React/ReactDOM/Supabaseの読み込み自体に失敗した場合は、再読み込みを促す専用の案内を出す
-    if (/React|Supabase|supabase/.test(msg) && /not defined/.test(msg)) {
-      box.innerHTML = '';
-      var text = document.createElement('div');
-      text.textContent = '必要な部品の読み込みに失敗しました。通信環境が不安定だった可能性があります。下のボタンで再読み込みしてください。';
-      box.appendChild(text);
-      var btn = document.createElement('button');
-      btn.textContent = '再読み込み';
-      btn.style.cssText = 'margin-top:12px;background:#1e293b;color:white;padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;';
-      btn.onclick = function () { location.reload(); };
-      box.appendChild(btn);
-    } else {
-      box.textContent = 'エラーが発生しました。このメッセージのスクリーンショットを共有してください:\n\n' + msg;
-    }
-  });
-</script>
-<script>
-// ================================================================
-// ★ セットアップ: 下の2行をあなたのSupabaseプロジェクトの値に書き換えてください
-// （Supabaseダッシュボード → Settings → API で確認できます）
-// ================================================================
-const SUPABASE_URL = "https://tstbqfkwnpntabdmksfm.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_FG4uMY7J89S77riOVb0K7w_ja_nXvgf";
+/* =====================================================================
+   ▼ Supabase 接続設定
+   ===================================================================== */
+const SUPABASE_URL  = "https://tstbqfkwnpntabdmksfm.supabase.co";
+const SUPABASE_ANON = "sb_publishable_26nApeSSefrof6QEa0YIhA_vZ6fYqtr";
+/* ===================================================================== */
+
 const MASTER_EMAIL = "michihari.natori.note@gmail.com";
-// 「全体」の平均を計算するときの起算日（記録を始めた日）。変更したい場合はここを書き換える
-const RECORD_START_DATE = "2026-07-13";
-const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "雑学"];
-const GENRE_COLORS = {
-  "小説": "#2c4a6e",
-  "紀行": "#3d5c46",
-  "哲学": "#4a3d66",
-  "俳句": "#6b5433",
-  "詩": "#7a3b3b",
-  "雑学": "#365e63",
-  "未分類": "#78716c"
-};
-// ================================================================
+const CATEGORIES = ["小説","紀行文","哲学","論文","詩","俳句"];
 
-// Supabaseのタブ間ロック機構（navigator.locks）は、まれに認証処理が
-// 永久に応答しなくなる既知の不具合があるため無効化する（このアプリはタブ間同期が不要）
-const noOpLock = async (_name, _acquireTimeout, fn) => fn();
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    lock: noOpLock
+/* 他プロジェクトと同じSupabaseを共用するためのテーブル接頭辞。
+   setup.sql のテーブル名と必ず一致させてください。 */
+const PFX = "shippitsu_";
+const T_WORKS = PFX+"works", T_RECORDS = PFX+"records", T_COMMENTS = PFX+"comments",
+      T_GOALS = PFX+"goals", T_PROFILES = PFX+"profiles";
+
+/* ---- グラフ部品の遅延読み込み ---- */
+let chartLibPromise = null;
+function ensureChart(){
+  if (window.Chart) return Promise.resolve();
+  if (!chartLibPromise){
+    chartLibPromise = new Promise((res, rej) => {
+      const el = document.createElement("script");
+      el.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+      el.onload = res; el.onerror = () => { chartLibPromise = null; rej(new Error("chart load failed")); };
+      document.head.appendChild(el);
+    });
   }
+  return chartLibPromise;
+}
+// 起動が落ち着いたら裏で先読みしておく
+window.addEventListener("load", () => {
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 2500));
+  idle(() => ensureChart().catch(() => {}));
 });
-const {
-  useState,
-  useEffect,
-  useMemo
-} = React;
 
-// Promiseが一定時間内に終わらない場合にフォールバックするためのヘルパー
-function withTimeout(promise, ms, fallback) {
-  return Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(fallback), ms))]);
+/* ---- サービスワーカー登録（ホーム画面からアプリとして起動するため） ---- */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => console.warn("SW未登録", err));
+  });
+  // 裏で新しい版が届いたら、小さく知らせる
+  navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data && e.data.type === "updated") showUpdateToast();
+  });
+}
+function showUpdateToast(){
+  if (document.getElementById("upd-toast")) return;
+  const t = document.createElement("div");
+  t.id = "upd-toast";
+  t.innerHTML = `新しい版があります <button type="button">更新する</button>`;
+  t.querySelector("button").onclick = () => location.reload();
+  document.body.appendChild(t);
 }
 
-// 依存ライブラリなしの棒グラフ（SVG手書き。外部チャートライブラリを使わないため確実に表示される）
-function SimpleBarChart({
-  data
-}) {
-  const [hover, setHover] = useState(null);
-  const max = Math.max(1, ...data.map(d => d.pages));
-  const W = 600,
-    H = 260,
-    padL = 34,
-    padB = 26,
-    padT = 14,
-    padR = 6;
-  const innerW = W - padL - padR,
-    innerH = H - padT - padB;
-  const slot = innerW / data.length;
-  const barW = Math.max(2, slot - (data.length > 20 ? 1.5 : 6));
-  const yTicks = 4;
-  const labelEvery = data.length <= 10 ? 1 : Math.ceil(data.length / 8);
-  return /*#__PURE__*/React.createElement("svg", {
-    viewBox: `0 0 ${W} ${H}`,
-    style: {
-      width: "100%",
-      height: "auto",
-      display: "block",
-      overflow: "visible"
+/* ---- 画面まわりの調整（入力そのものには一切干渉しない） ---- */
+(function(){
+  const isField = el => el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+
+  // キーボードで隠れる分を差し引いた「実際に見えている高さ」を反映する
+  const vv = window.visualViewport;
+  const applyViewport = () => {
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty("--vvh", h + "px");
+  };
+  applyViewport();
+  if (vv){
+    vv.addEventListener("resize", applyViewport);
+    vv.addEventListener("scroll", applyViewport);
+  }
+  window.addEventListener("orientationchange", () => setTimeout(applyViewport, 300));
+
+  // 入力欄がキーボードに隠れないよう、画面内へ寄せる（受け身の処理のみ）
+  document.addEventListener("focusin", e => {
+    if (!isField(e.target)) return;
+    const bring = () => {
+      try { e.target.scrollIntoView({ block:"center", behavior:"smooth" }); } catch (_) {}
+    };
+    setTimeout(bring, 300);
+    setTimeout(bring, 600);
+  });
+
+  // 入力に応じて高さが伸びるテキストエリア
+  document.addEventListener("input", e => {
+    const el = e.target;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 14 * 16) + "px";
+  });
+
+  // モーダルの開閉で body のスクロール禁止が残らないようにする
+  const unstick = () => {
+    if (document.querySelectorAll(".modal-back:not(.hidden)").length === 0) {
+      document.body.style.overflow = "";
     }
-  }, Array.from({
-    length: yTicks + 1
-  }, (_, i) => {
-    const v = Math.round(max / yTicks * i);
-    const y = padT + innerH - innerH * (v / max);
-    return /*#__PURE__*/React.createElement("g", {
-      key: i
-    }, /*#__PURE__*/React.createElement("line", {
-      x1: padL,
-      x2: W - padR,
-      y1: y,
-      y2: y,
-      stroke: "#e7e5e4",
-      strokeDasharray: "3 3"
-    }), /*#__PURE__*/React.createElement("text", {
-      x: padL - 6,
-      y: y + 3,
-      fontSize: "9",
-      fill: "#78716c",
-      textAnchor: "end"
-    }, v));
-  }), data.map((d, i) => {
-    const x = padL + i * slot + (slot - barW) / 2;
-    const h = d.pages / max * innerH;
-    const y = padT + innerH - h;
-    return /*#__PURE__*/React.createElement("g", {
-      key: i,
-      onMouseEnter: () => setHover(i),
-      onMouseLeave: () => setHover(null)
-    }, /*#__PURE__*/React.createElement("rect", {
-      x: x,
-      y: y,
-      width: barW,
-      height: Math.max(h, d.pages > 0 ? 1 : 0),
-      rx: "2",
-      fill: hover === i ? "#2c4a70" : "#1e3a5f"
-    }), /*#__PURE__*/React.createElement("rect", {
-      x: x,
-      y: padT,
-      width: barW,
-      height: innerH,
-      fill: "transparent"
-    }), i % labelEvery === 0 && /*#__PURE__*/React.createElement("text", {
-      x: x + barW / 2,
-      y: H - 8,
-      fontSize: "9",
-      fill: "#78716c",
-      textAnchor: "middle"
-    }, d.label));
-  }), hover !== null && /*#__PURE__*/React.createElement("text", {
-    x: padL + hover * slot + slot / 2,
-    y: Math.max(padT + 10, padT + innerH - data[hover].pages / max * innerH - 6),
-    fontSize: "10",
-    fontWeight: "bold",
-    fill: "#1c1917",
-    textAnchor: "middle"
-  }, data[hover].pages, "ページ"));
+  };
+  window.addEventListener("pageshow", unstick);
+  window.addEventListener("focus", unstick);
+})();
+
+/* ---- ユーティリティ ---- */
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n||0).toLocaleString("ja-JP");
+const dstr = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const todayStr = () => dstr(new Date());
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const unitOf = cat => cat==="俳句" ? "句" : "字";
+const whenStr = t => new Date(t).toLocaleString("ja-JP",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+const dayStr  = t => new Date(t).toLocaleDateString("ja-JP",{year:"numeric",month:"numeric",day:"numeric"});
+
+let sb = null, currentUser = null, isMaster = false;
+let works = [], chart = null, currentPeriod = "week";
+let commentCounts = {}, todayByWork = {};
+let workTotals = {}, workPos = {};
+let recMode = "range", wmMode = "range";
+let workFilterStatus = "執筆中", workFilterCat = "all", workNewCat = "小説";
+let detailWorkId = null;
+let wmCmKind = "アイデア", wmCmTag = "all", wmNewTag = "";
+let cmKind = "アイデア", cmTag = "all";
+const IDEA_TAGS = ["キャラクター","ストーリー","ウィット","コンセプト"];
+let todayGoal = null, todayChars = 0, todayHaiku = 0;
+
+
+/* ---- 起動 ---- */
+window.addEventListener("DOMContentLoaded", async () => {
+  if (!SUPABASE_URL || SUPABASE_URL.startsWith("YOUR_")) { $("setup-screen").classList.remove("hidden"); return; }
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  $("ver-mode").textContent = standalone ? "アプリ表示" : "ブラウザ表示";
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  bindAuth(); bindApp();
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) enterApp(session.user); else $("auth-screen").classList.remove("hidden");
+  sb.auth.onAuthStateChange((_e, session) => { if (!session && currentUser) location.reload(); });
+});
+
+/* =====================================================================
+   認証
+   ===================================================================== */
+let authMode = "login";
+function bindAuth(){
+  $("tab-login").onclick  = () => setAuthMode("login");
+  $("tab-signup").onclick = () => setAuthMode("signup");
+  $("auth-submit").onclick = doAuth;
+  $("auth-pass").addEventListener("keydown", e => { if(e.key==="Enter") doAuth(); });
+  $("auth-email").addEventListener("keydown", e => { if(e.key==="Enter") $("auth-pass").focus(); });
 }
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-const fmtDate = s => {
-  const [y, m, d] = s.split("-");
-  return `${y}年${Number(m)}月${Number(d)}日`;
-};
-const SPINE_COLORS = ["#2c4a6e", "#7a3b3b", "#3d5c46", "#6b5433", "#4a3d66", "#365e63", "#7a5460", "#54626e"];
-const spineColor = id => SPINE_COLORS[Math.abs(String(id).split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % SPINE_COLORS.length];
-const emptyData = {
-  books: [],
-  sessions: [],
-  comments: [],
-  goal: 0
-};
-function App() {
-  const [user, setUser] = useState(null); // { id, email }
-  const [authMode, setAuthMode] = useState("login");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPass, setAuthPass] = useState("");
-  const [authMsg, setAuthMsg] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
-  const [data, setData] = useState(emptyData);
-  const [loaded, setLoaded] = useState(false);
-  const [saveErr, setSaveErr] = useState("");
-  const [tab, setTab] = useState("log");
-  const [selectedBookId, setSelectedBookId] = useState(null);
-  const [logBookId, setLogBookId] = useState("");
-  const [startPage, setStartPage] = useState("");
-  const [endPage, setEndPage] = useState("");
-  const [logMsg, setLogMsg] = useState("");
-  const [goalInput, setGoalInput] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [newAuthor, setNewAuthor] = useState("");
-  const [newGenre, setNewGenre] = useState(GENRES[0]);
-  const [commentText, setCommentText] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [range, setRange] = useState("week");
-  const [shelfFilter, setShelfFilter] = useState("all");
-  const [periodType, setPeriodType] = useState("month");
-  const [selectedPeriod, setSelectedPeriod] = useState(todayStr().slice(0, 7));
-  const isMaster = user && user.email === MASTER_EMAIL;
-  const [adminAccounts, setAdminAccounts] = useState([]);
-  const [adminLoading, setAdminLoading] = useState(false);
-
-  // ---- データ読み込み ----
-  const loadData = async uid => {
-    const {
-      data: row,
-      error
-    } = await sb.from("reading_data").select("data").eq("user_id", uid).maybeSingle();
-    if (!error && row && row.data) {
-      setData({
-        ...emptyData,
-        ...row.data
-      });
-    } else {
-      setData(emptyData);
-      if (error) {
-        setSaveErr(`データの読み込みに失敗しました: ${error.message}${error.code ? "（コード: " + error.code + "）" : ""}`);
-      }
-    }
-  };
-
-  // ---- セッション復元（ログイン状態の保持） ----
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await withTimeout(sb.auth.getSession(), 8000, null);
-        const session = result && result.data ? result.data.session : null;
-        if (session && session.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email
-          });
-          await withTimeout(loadData(session.user.id), 8000, null);
-        }
-      } catch (e) {/* セッションなし */}
-      setLoaded(true);
-    })();
-  }, []);
-
-  // ---- 認証 ----
-  const signup = async () => {
-    setAuthBusy(true);
-    setAuthMsg("");
-    const result = await withTimeout(sb.auth.signUp({
-      email: authEmail.trim(),
-      password: authPass
-    }), 10000, {
-      data: null,
-      error: null,
-      timedOut: true
-    });
-    if (result.timedOut) {
-      setAuthMsg("応答がありませんでした。通信環境をご確認のうえ、もう一度お試しください。");
-      setAuthBusy(false);
-      return;
-    }
-    const {
-      data: res,
-      error
-    } = result;
-    if (error) {
-      setAuthMsg(error.message.includes("already") ? "このメールアドレスは既に登録されています" : `登録に失敗しました: ${error.message}`);
-    } else if (res.session && res.user) {
-      setUser({
-        id: res.user.id,
-        email: res.user.email
-      });
-      setData(emptyData);
-      const {
-        error: initErr
-      } = await sb.from("reading_data").upsert({
-        user_id: res.user.id,
-        email: res.user.email,
-        data: emptyData
-      });
-      if (initErr) {
-        setSaveErr(`初期データの保存に失敗しました: ${initErr.message}${initErr.code ? "（コード: " + initErr.code + "）" : ""}`);
-      }
-      setAuthPass("");
-    } else {
-      setAuthMsg("確認メールを送信しました。メール内のリンクをクリックしてからログインしてください。");
-    }
-    setAuthBusy(false);
-  };
-  const login = async () => {
-    setAuthBusy(true);
-    setAuthMsg("");
-    const result = await withTimeout(sb.auth.signInWithPassword({
-      email: authEmail.trim(),
-      password: authPass
-    }), 10000, {
-      data: null,
-      error: null,
-      timedOut: true
-    });
-    if (result.timedOut) {
-      setAuthMsg("応答がありませんでした。通信環境をご確認のうえ、もう一度お試しください。");
-      setAuthBusy(false);
-      return;
-    }
-    const {
-      data: res,
-      error
-    } = result;
-    if (error) {
-      setAuthMsg("メールアドレスまたはパスワードが違います");
-    } else if (res.user) {
-      setUser({
-        id: res.user.id,
-        email: res.user.email
-      });
-      await loadData(res.user.id);
-      setAuthPass("");
-    }
-    setAuthBusy(false);
-  };
-  const logout = async () => {
-    await withTimeout(sb.auth.signOut(), 5000, null);
-    setUser(null);
-    setData(emptyData);
-    setTab("log");
-    setSelectedBookId(null);
-  };
-
-  // ---- 保存 ----
-  const save = async next => {
-    setData(next);
-    if (!user) return;
-    const {
-      error
-    } = await sb.from("reading_data").upsert({
-      user_id: user.id,
-      email: user.email,
-      data: next,
-      updated_at: new Date().toISOString()
-    });
-    setSaveErr(error ? `保存に失敗しました: ${error.message}${error.code ? "（コード: " + error.code + "）" : ""}` : "");
-  };
-
-  // ---- 操作 ----
-  const addBook = () => {
-    if (!newTitle.trim() || !newAuthor.trim()) return;
-    const book = {
-      id: Date.now().toString(),
-      title: newTitle.trim(),
-      author: newAuthor.trim(),
-      genre: newGenre,
-      status: "reading",
-      finishedDate: null
-    };
-    save({
-      ...data,
-      books: [...data.books, book]
-    });
-    setNewTitle("");
-    setNewAuthor("");
-  };
-  const addSession = bookIdArg => {
-    const bookId = bookIdArg || logBookId;
-    const s = parseInt(startPage, 10);
-    const e = parseInt(endPage, 10);
-    if (!bookId) {
-      setLogMsg("本を選んでください");
-      return;
-    }
-    if (isNaN(s) || isNaN(e)) {
-      setLogMsg("ページ数を入力してください");
-      return;
-    }
-    if (e < s) {
-      setLogMsg("読み終わりは読み始め以上のページにしてください");
-      return;
-    }
-    const pages = e - s;
-    const session = {
-      id: Date.now().toString(),
-      bookId,
-      date: todayStr(),
-      startPage: s,
-      endPage: e,
-      pages
-    };
-    save({
-      ...data,
-      sessions: [...data.sessions, session]
-    });
-    setStartPage("");
-    setEndPage("");
-    const book = data.books.find(b => b.id === bookId);
-    setLogMsg(`「${book ? book.title : ""}」を ${pages} ページ読みました`);
-  };
-  const saveGoal = () => {
-    const g = parseInt(goalInput, 10);
-    if (isNaN(g) || g < 0) return;
-    save({
-      ...data,
-      goal: g
-    });
-    setGoalInput("");
-  };
-  const deleteSession = id => save({
-    ...data,
-    sessions: data.sessions.filter(s => s.id !== id)
-  });
-  const addComment = bookId => {
-    if (!commentText.trim()) return;
-    const c = {
-      id: Date.now().toString(),
-      bookId,
-      text: commentText.trim(),
-      date: todayStr()
-    };
-    save({
-      ...data,
-      comments: [...data.comments, c]
-    });
-    setCommentText("");
-  };
-  const deleteComment = id => save({
-    ...data,
-    comments: data.comments.filter(c => c.id !== id)
-  });
-  const deleteBook = id => {
-    save({
-      ...data,
-      books: data.books.filter(b => b.id !== id),
-      sessions: data.sessions.filter(s => s.bookId !== id),
-      comments: data.comments.filter(c => c.bookId !== id)
-    });
-    setSelectedBookId(null);
-  };
-  const switchPeriodType = t => {
-    setPeriodType(t);
-    setSelectedPeriod(t === "month" ? todayStr().slice(0, 7) : todayStr().slice(0, 4));
-  };
-  const [editingBook, setEditingBook] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editAuthor, setEditAuthor] = useState("");
-  const setBookGenre = (id, genre) => save({
-    ...data,
-    books: data.books.map(b => b.id === id ? {
-      ...b,
-      genre
-    } : b)
-  });
-  const startEditBook = b => {
-    setEditTitle(b.title);
-    setEditAuthor(b.author);
-    setEditingBook(true);
-  };
-  const saveEditBook = id => {
-    if (!editTitle.trim() || !editAuthor.trim()) return;
-    save({
-      ...data,
-      books: data.books.map(b => b.id === id ? {
-        ...b,
-        title: editTitle.trim(),
-        author: editAuthor.trim()
-      } : b)
-    });
-    setEditingBook(false);
-  };
-  const setBookStatus = (id, status) => save({
-    ...data,
-    books: data.books.map(b => b.id === id ? {
-      ...b,
-      status,
-      finishedDate: status === "finished" ? todayStr() : null
-    } : b)
-  });
-
-  // ---- 管理（マスターのみ） ----
-  const loadAccounts = async () => {
-    setAdminLoading(true);
-    const {
-      data: rows,
-      error
-    } = await sb.from("reading_data").select("user_id, email, data");
-    if (!error && rows) {
-      setAdminAccounts(rows.map(r => {
-        const d = {
-          ...emptyData,
-          ...(r.data || {})
-        };
-        return {
-          userId: r.user_id,
-          email: r.email,
-          books: d.books.length,
-          pages: d.sessions.reduce((a, s) => a + s.pages, 0),
-          comments: d.comments.length
-        };
-      }));
-    } else {
-      setAdminAccounts([]);
-    }
-    setAdminLoading(false);
-  };
-  const deleteAccountData = async (userId, email) => {
-    if (email === MASTER_EMAIL) return;
-    const {
-      error
-    } = await sb.from("reading_data").delete().eq("user_id", userId);
-    if (!error) setAdminAccounts(prev => prev.filter(a => a.userId !== userId));
-  };
-
-  // ---- 集計 ----
-  const todayTotal = useMemo(() => data.sessions.filter(s => s.date === todayStr()).reduce((a, s) => a + s.pages, 0), [data.sessions]);
-  const goalMet = data.goal > 0 && todayTotal >= data.goal;
-  const dailyTotals = useMemo(() => {
-    const map = {};
-    data.sessions.forEach(s => {
-      map[s.date] = (map[s.date] || 0) + s.pages;
-    });
-    return map;
-  }, [data.sessions]);
-  const chartData = useMemo(() => {
-    const now = new Date();
-    if (range === "week" || range === "month") {
-      const days = range === "week" ? 7 : 30;
-      return Array.from({
-        length: days
-      }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (days - 1 - i));
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        return {
-          label: `${d.getMonth() + 1}/${d.getDate()}`,
-          pages: dailyTotals[key] || 0
-        };
-      });
-    }
-    if (range === "all") {
-      // 全体: 記録がある最初の年から今年まで。複数年にまたがる場合は年ごと、単年なら月ごと
-      const allDates = Object.keys(dailyTotals).filter(d => (dailyTotals[d] || 0) > 0).sort();
-      if (allDates.length === 0) return [{ label: "記録なし", pages: 0 }];
-      const startStr = allDates[0] < RECORD_START_DATE ? allDates[0] : RECORD_START_DATE;
-      const firstYear = Number(startStr.slice(0, 4));
-      const lastYear = now.getFullYear();
-      if (firstYear === lastYear) {
-        const ms = Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}月`, pages: 0 }));
-        Object.entries(dailyTotals).forEach(([date, pages]) => {
-          const [y, m] = date.split("-").map(Number);
-          if (y === firstYear) ms[m - 1].pages += pages;
-        });
-        return ms;
-      }
-      const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => ({
-        label: `${firstYear + i}年`,
-        pages: 0
-      }));
-      Object.entries(dailyTotals).forEach(([date, pages]) => {
-        const y = Number(date.slice(0, 4));
-        if (y >= firstYear && y <= lastYear) years[y - firstYear].pages += pages;
-      });
-      return years;
-    }
-    const year = now.getFullYear();
-    const months = Array.from({
-      length: 12
-    }, (_, i) => ({
-      label: `${i + 1}月`,
-      pages: 0
-    }));
-    Object.entries(dailyTotals).forEach(([date, pages]) => {
-      const [y, m] = date.split("-").map(Number);
-      if (y === year) months[m - 1].pages += pages;
-    });
-    return months;
-  }, [range, dailyTotals]);
-  const rangeTotal = chartData.reduce((a, d) => a + d.pages, 0);
-
-  // 平均はグラフの単位（年間は月ごと）に依存せず、必ず「日」を基準に計算する
-  const avgStats = useMemo(() => {
-    const now = new Date();
-    let days, dates;
-    if (range === "week" || range === "month") {
-      days = range === "week" ? 7 : 30;
-      dates = Array.from({ length: days }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (days - 1 - i));
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      });
-    } else if (range === "all") {
-      // 全体は「記録を始めた日（RECORD_START_DATE）から今日まで」の経過日数を分母にする。
-      // それより古い記録がある場合は、その日を起点にして日数が不足しないようにする
-      const recorded = Object.keys(dailyTotals).filter(d => (dailyTotals[d] || 0) > 0).sort();
-      dates = recorded;
-      const startStr = recorded.length > 0 && recorded[0] < RECORD_START_DATE ? recorded[0] : RECORD_START_DATE;
-      const [sy, sm, sd] = startStr.split("-").map(Number);
-      const start = new Date(sy, sm - 1, sd);
-      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      days = Math.max(1, Math.floor((todayMidnight - start) / 86400000) + 1);
-    } else {
-      // 年間は「元日から今日まで」の経過日数を分母にする
-      const year = now.getFullYear();
-      const start = new Date(year, 0, 1);
-      days = Math.floor((now - start) / 86400000) + 1;
-      dates = Object.keys(dailyTotals).filter(d => d.startsWith(String(year)));
-    }
-    const total = dates.reduce((a, d) => a + (dailyTotals[d] || 0), 0);
-    const active = dates.filter(d => (dailyTotals[d] || 0) > 0).length;
-    return {
-      days,
-      activeDays: active,
-      avgPerDay: days === 0 ? 0 : Math.round(total / days * 10) / 10,
-      avgPerActiveDay: active === 0 ? 0 : Math.round(total / active * 10) / 10
-    };
-  }, [range, dailyTotals]);
-
-  const avgPerDay = avgStats.avgPerDay;
-  const activeDays = avgStats.activeDays;
-  const avgPerActiveDay = avgStats.avgPerActiveDay;
-  const rangeDays = avgStats.days;
-
-  // 統計タブ: 期間の選択肢（データのある月・年 + 今月・今年）
-  const periodOptions = useMemo(() => {
-    const set = new Set();
-    data.sessions.forEach(s => set.add(periodType === "month" ? s.date.slice(0, 7) : s.date.slice(0, 4)));
-    data.books.forEach(b => {
-      if (b.finishedDate) set.add(periodType === "month" ? b.finishedDate.slice(0, 7) : b.finishedDate.slice(0, 4));
-    });
-    set.add(periodType === "month" ? todayStr().slice(0, 7) : todayStr().slice(0, 4));
-    return ["", ...Array.from(set).sort().reverse()];
-  }, [data.sessions, data.books, periodType]);
-
-  // 選択中の期間に読了した本（新しい順）
-  const finishedInPeriod = useMemo(() => {
-    return data.books
-      .filter(b => (b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod))
-      .slice()
-      .sort((a, b) => b.finishedDate.localeCompare(a.finishedDate));
-  }, [data.books, selectedPeriod]);
-
-  // 選択中の期間のジャンル別集計（読了冊数とページ数）
-  const genreStats = useMemo(() => {
-    const stats = {};
-    const ensure = g => {
-      if (!stats[g]) stats[g] = { genre: g, books: 0, pages: 0 };
-      return stats[g];
-    };
-    // 6ジャンルは記録がなくても必ず表示する
-    GENRES.forEach(g => ensure(g));
-    data.books.forEach(b => {
-      if ((b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod)) {
-        ensure(b.genre || "未分類").books += 1;
-      }
-    });
-    data.sessions.forEach(s => {
-      if (!s.date.startsWith(selectedPeriod)) return;
-      const book = data.books.find(b => b.id === s.bookId);
-      ensure(book ? book.genre || "未分類" : "未分類").pages += s.pages;
-    });
-    return Object.values(stats)
-      .filter(x => GENRES.includes(x.genre) || x.books > 0 || x.pages > 0)
-      .sort((a, b) => {
-        const ia = GENRES.indexOf(a.genre), ib = GENRES.indexOf(b.genre);
-        if (ia === -1 && ib === -1) return 0;
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-  }, [data.books, data.sessions, selectedPeriod]);
-
-  const periodPages = genreStats.reduce((a, g) => a + g.pages, 0);
-  const fmtPeriod = p => p === "" ? "全期間" : p.length === 7 ? `${p.slice(0, 4)}年${Number(p.slice(5, 7))}月` : `${p}年`;
-  const bookPages = bookId => data.sessions.filter(s => s.bookId === bookId).reduce((a, s) => a + s.pages, 0);
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return data.comments;
-    return data.comments.filter(c => {
-      const book = data.books.find(b => b.id === c.bookId);
-      return c.text.toLowerCase().includes(q) || book && (book.title.toLowerCase().includes(q) || book.author.toLowerCase().includes(q));
-    });
-  }, [searchQuery, data.comments, data.books]);
-  const selectedBook = data.books.find(b => b.id === selectedBookId);
-  const filteredBooks = data.books.filter(b => shelfFilter === "all" ? true : (b.status || "reading") === shelfFilter);
-  const readingCount = data.books.filter(b => (b.status || "reading") === "reading").length;
-  const finishedCount = data.books.filter(b => (b.status || "reading") === "finished").length;
-  const loggableBooks = data.books.filter(b => (b.status || "reading") !== "finished");
-  if (!loaded) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "min-h-screen flex items-center justify-center text-stone-500"
-    }, "読み込み中…");
-  }
-
-  // ============ ログイン画面 ============
-  if (!user) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "min-h-screen bg-slate-900 flex items-center justify-center px-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-full max-w-sm"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-center mb-8"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-4xl mb-2"
-    }, "📖"), /*#__PURE__*/React.createElement("h1", {
-      className: "text-2xl font-bold text-stone-100 tracking-wide"
-    }, "読書記録")), /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-2xl shadow-lg p-6"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex mb-5 bg-stone-100 rounded-lg p-1"
-    }, [["login", "ログイン"], ["signup", "新規登録"]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
-      key: id,
-      onClick: () => {
-        setAuthMode(id);
-        setAuthMsg("");
-      },
-      className: `flex-1 py-2 rounded-md text-sm font-semibold transition-colors ${authMode === id ? "bg-white shadow-sm text-slate-900" : "text-stone-500"}`
-    }, label))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-4"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-      className: "block text-sm text-stone-600 mb-1"
-    }, "メールアドレス"), /*#__PURE__*/React.createElement("input", {
-      type: "email",
-      value: authEmail,
-      onChange: e => setAuthEmail(e.target.value),
-      placeholder: "you@example.com",
-      className: "w-full border border-stone-300 rounded-lg px-3 py-2.5"
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-      className: "block text-sm text-stone-600 mb-1"
-    }, "パスワード（6文字以上）"), /*#__PURE__*/React.createElement("input", {
-      type: "password",
-      value: authPass,
-      onChange: e => setAuthPass(e.target.value),
-      onKeyDown: e => e.key === "Enter" && (authMode === "login" ? login() : signup()),
-      placeholder: "••••••••",
-      className: "w-full border border-stone-300 rounded-lg px-3 py-2.5"
-    })), /*#__PURE__*/React.createElement("button", {
-      onClick: authMode === "login" ? login : signup,
-      disabled: authBusy,
-      className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors disabled:opacity-50"
-    }, authBusy ? "処理中…" : authMode === "login" ? "ログイン" : "アカウントを作成"), authMsg && /*#__PURE__*/React.createElement("p", {
-      className: "text-sm text-red-600"
-    }, authMsg))), /*#__PURE__*/React.createElement("p", {
-      className: "text-xs text-slate-400 text-center mt-4"
-    }, "アカウントごとに読書データが保存され、どの端末からログインしても続きから記録できます。")));
-  }
-
-  // ============ メイン画面 ============
-  const tabs = [{
-    id: "log",
-    label: "✏️ 記録する"
-  }, {
-    id: "shelf",
-    label: "📚 本棚"
-  }, {
-    id: "stats",
-    label: "📈 統計"
-  }, {
-    id: "comments",
-    label: "🔍 コメント検索"
-  }, ...(isMaster ? [{
-    id: "admin",
-    label: "🛡 管理"
-  }] : [])];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen text-stone-800"
-  }, /*#__PURE__*/React.createElement("header", {
-    className: "bg-slate-900 text-stone-100"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "max-w-3xl mx-auto px-4 py-5 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
-    className: "text-xl font-bold tracking-wide"
-  }, "読書記録"), /*#__PURE__*/React.createElement("button", {
-    onClick: logout,
-    className: "text-xs text-slate-400 hover:text-white mt-0.5"
-  }, user.email, "（ログアウト）", isMaster && /*#__PURE__*/React.createElement("span", {
-    className: "ml-1 bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold"
-  }, "マスター"))), /*#__PURE__*/React.createElement("div", {
-    className: "text-right"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400"
-  }, "今日の合計", data.goal ? `（目標 ${data.goal}ページ）` : ""), /*#__PURE__*/React.createElement("div", {
-    className: `text-2xl font-bold ${goalMet ? "text-emerald-400" : "text-amber-400"}`
-  }, todayTotal, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm font-normal text-slate-300 ml-1"
-  }, "ページ")))), /*#__PURE__*/React.createElement("nav", {
-    className: "max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto"
-  }, tabs.map(t => {
-    const active = tab === t.id;
-    return /*#__PURE__*/React.createElement("button", {
-      key: t.id,
-      onClick: () => {
-        setTab(t.id);
-        setSelectedBookId(null);
-        if (t.id === "admin") loadAccounts();
-      },
-      className: `px-3 py-2 text-sm rounded-t-lg transition-colors whitespace-nowrap shrink-0 ${active ? "bg-stone-100 text-slate-900 font-semibold" : "text-slate-300 hover:text-white"}`
-    }, t.label);
-  }))), /*#__PURE__*/React.createElement("main", {
-    className: "max-w-3xl mx-auto px-4 py-6"
-  }, saveErr && /*#__PURE__*/React.createElement("p", {
-    className: "mb-4 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2"
-  }, saveErr), tab === "log" && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6"
-  }, /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-lg mb-4"
-  }, "読んだページを記録"), data.books.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "まず「本棚」タブで本を登録してください。") : loggableBooks.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "読書中の本がありません。本棚から新しい本を登録するか、読了した本を「読書中」に戻してください。") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-4"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "本を選ぶ"), /*#__PURE__*/React.createElement("select", {
-    value: logBookId,
-    onChange: e => setLogBookId(e.target.value),
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2 bg-white"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "— 選択してください —"), loggableBooks.map(b => /*#__PURE__*/React.createElement("option", {
-    key: b.id,
-    value: b.id
-  }, b.title, "（", b.author, "）")))), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "読み始め"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    value: startPage,
-    onChange: e => setStartPage(e.target.value),
-    placeholder: "例: 24",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "読み終わり"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    value: endPage,
-    onChange: e => setEndPage(e.target.value),
-    placeholder: "例: 58",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  }))), startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2"
-  }, "この記録で ", /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, parseInt(endPage) - parseInt(startPage)), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addSession(),
-    className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
-  }, "＋ 記録を保存"), logMsg && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-emerald-700"
-  }, logMsg))), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold mb-3"
-  }, "目標"), data.goal ? /*#__PURE__*/React.createElement("div", {
-    className: "mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-baseline justify-between mb-1.5"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: `text-lg font-bold ${goalMet ? "text-emerald-600" : "text-slate-800"}`
-  }, todayTotal, " / ", data.goal, " ページ"), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-stone-500"
-  }, Math.min(100, Math.round(todayTotal / data.goal * 100)), "%")), /*#__PURE__*/React.createElement("div", {
-    className: "h-2.5 bg-stone-200 rounded-full overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: `h-full rounded-full transition-all ${goalMet ? "bg-emerald-500" : "bg-amber-500"}`,
-    style: {
-      width: `${Math.min(100, todayTotal / data.goal * 100)}%`
-    }
-  }))) : /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm mb-3"
-  }, "一日の目標ページ数を設定すると、達成状況が表示されます。"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "1",
-    value: goalInput,
-    onChange: e => setGoalInput(e.target.value),
-    placeholder: data.goal ? `現在の目標: ${data.goal}ページ` : "例: 30",
-    className: "flex-1 border border-stone-300 rounded-lg px-3 py-2"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: saveGoal,
-    className: "bg-slate-900 text-white rounded-lg px-4 font-semibold hover:bg-slate-700"
-  }, data.goal ? "変更" : "設定"))), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold mb-3"
-  }, "今日の記録（", fmtDate(todayStr()), "）"), data.sessions.filter(s => s.date === todayStr()).length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "まだ記録がありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "divide-y divide-stone-100"
-  }, data.sessions.filter(s => s.date === todayStr()).map(s => {
-    const b = data.books.find(x => x.id === s.bookId);
-    return /*#__PURE__*/React.createElement("li", {
-      key: s.id,
-      className: "py-2.5 flex items-center justify-between gap-2"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2.5 min-w-0"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-1.5 h-8 rounded-sm shrink-0",
-      style: {
-        backgroundColor: b ? spineColor(b.id) : "#999"
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-sm font-medium truncate"
-    }, b ? b.title : "（削除された本）"), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-stone-500"
-    }, "p.", s.startPage, " → p.", s.endPage))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 shrink-0"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "font-bold text-slate-800"
-    }, s.pages, /*#__PURE__*/React.createElement("span", {
-      className: "text-xs font-normal text-stone-500"
-    }, "ページ")), /*#__PURE__*/React.createElement("button", {
-      onClick: () => deleteSession(s.id),
-      className: "text-stone-400 hover:text-red-600 text-xs"
-    }, "削除")));
-  })))), tab === "shelf" && !selectedBook && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6"
-  }, /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-lg mb-4"
-  }, "本を登録"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "タイトル"), /*#__PURE__*/React.createElement("input", {
-    value: newTitle,
-    onChange: e => setNewTitle(e.target.value),
-    placeholder: "例: 吾輩は猫である",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "著者名"), /*#__PURE__*/React.createElement("input", {
-    value: newAuthor,
-    onChange: e => setNewAuthor(e.target.value),
-    placeholder: "例: 夏目漱石",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "mb-3"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "ジャンル"), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-2"
-  }, GENRES.map(g => /*#__PURE__*/React.createElement("button", {
-    key: g,
-    onClick: () => setNewGenre(g),
-    className: `px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border ${newGenre === g ? "bg-slate-900 text-white border-slate-900" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-100"}`
-  }, g)))), /*#__PURE__*/React.createElement("button", {
-    onClick: addBook,
-    className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
-  }, "本棚に追加")), /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-stone-700"
-  }, "登録済みの本（", data.books.length, "冊）"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
-  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
-    key: id,
-    onClick: () => setShelfFilter(id),
-    className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${shelfFilter === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-100"}`
-  }, label)))), filteredBooks.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm bg-white rounded-xl p-5"
-  }, data.books.length === 0 ? "まだ本がありません。上のフォームから登録しましょう。" : "この条件に合う本はありません。") : /*#__PURE__*/React.createElement("div", {
-    className: "grid gap-3"
-  }, filteredBooks.map(b => {
-    const total = bookPages(b.id);
-    const cCount = data.comments.filter(c => c.bookId === b.id).length;
-    const status = b.status || "reading";
-    return /*#__PURE__*/React.createElement("button", {
-      key: b.id,
-      onClick: () => {
-        setSelectedBookId(b.id);
-        setEditingBook(false);
-      },
-      className: "bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow w-full"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-2.5 h-14 rounded-sm shrink-0",
-      style: {
-        backgroundColor: spineColor(b.id)
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "font-semibold truncate"
-    }, b.title), /*#__PURE__*/React.createElement("span", {
-      className: `shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${status === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-    }, status === "finished" ? "読了" : "読書中")), /*#__PURE__*/React.createElement("div", {
-      className: "text-sm text-stone-500 truncate"
-    }, b.author, ` ・ ${b.genre || "未分類"}`)), /*#__PURE__*/React.createElement("div", {
-      className: "text-right shrink-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "font-bold text-slate-800"
-    }, total, /*#__PURE__*/React.createElement("span", {
-      className: "text-xs font-normal text-stone-500"
-    }, "ページ")), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-stone-400"
-    }, "💬 ", cCount, "件")));
-  })))), tab === "shelf" && selectedBook && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setSelectedBookId(null);
-      setEditingBook(false);
-    },
-    className: "text-sm text-slate-600 hover:text-slate-900"
-  }, "← 本棚に戻る"), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-3"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-3 h-16 rounded-sm shrink-0",
-    style: {
-      backgroundColor: spineColor(selectedBook.id)
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1"
-  }, editingBook ? /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-stone-500 mb-1"
-  }, "タイトル"), /*#__PURE__*/React.createElement("input", {
-    value: editTitle,
-    onChange: e => setEditTitle(e.target.value),
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2 font-bold"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-stone-500 mb-1"
-  }, "著者名"), /*#__PURE__*/React.createElement("input", {
-    value: editAuthor,
-    onChange: e => setEditAuthor(e.target.value),
-    onKeyDown: e => e.key === "Enter" && saveEditBook(selectedBook.id),
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => saveEditBook(selectedBook.id),
-    className: "bg-slate-900 text-white rounded-lg px-4 py-1.5 text-sm font-semibold hover:bg-slate-700"
-  }, "保存"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setEditingBook(false),
-    className: "text-stone-500 hover:text-stone-800 text-sm px-2"
-  }, "キャンセル"))) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-xl"
-  }, selectedBook.title), /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500"
-  }, selectedBook.author, selectedBook.genre ? ` ・ ${selectedBook.genre}` : "")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => startEditBook(selectedBook),
-    className: "text-xs text-slate-600 hover:text-slate-900 border border-stone-300 rounded-lg px-2 py-1 shrink-0"
-  }, "編集")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center flex-wrap gap-2 mt-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: `text-xs font-semibold px-2 py-0.5 rounded ${(selectedBook.status || "reading") === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-  }, (selectedBook.status || "reading") === "finished" ? "読了" : "読書中"), (selectedBook.status || "reading") === "finished" && selectedBook.finishedDate && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-stone-400"
-  }, fmtDate(selectedBook.finishedDate), "に読了"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setBookStatus(selectedBook.id, (selectedBook.status || "reading") === "finished" ? "reading" : "finished"),
-    className: `text-xs font-semibold px-2.5 py-1 rounded-lg border ${(selectedBook.status || "reading") === "finished" ? "border-stone-300 text-stone-600 hover:bg-stone-50" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`
-  }, (selectedBook.status || "reading") === "finished" ? "読書中に戻す" : "読了にする")), /*#__PURE__*/React.createElement("div", {
-    className: "mt-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500 mb-1.5"
-  }, "ジャンル"), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-1.5"
-  }, GENRES.map(g => /*#__PURE__*/React.createElement("button", {
-    key: g,
-    onClick: () => setBookGenre(selectedBook.id, g),
-    className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors border ${selectedBook.genre === g ? "bg-slate-900 text-white border-slate-900" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-100"}`
-  }, g)))), /*#__PURE__*/React.createElement("p", {
-    className: "mt-2 text-slate-800 font-semibold"
-  }, "累計 ", bookPages(selectedBook.id), " ページ")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteBook(selectedBook.id),
-    className: "text-stone-400 hover:text-red-600 text-sm"
-  }, "削除"))), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold mb-3"
-  }, "この本の読書を記録"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "読み始め"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    value: startPage,
-    onChange: e => setStartPage(e.target.value),
-    placeholder: "例: 24",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-sm text-stone-600 mb-1"
-  }, "読み終わり"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    value: endPage,
-    onChange: e => setEndPage(e.target.value),
-    placeholder: "例: 58",
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  }))), startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 mb-3"
-  }, "この記録で ", /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, parseInt(endPage) - parseInt(startPage)), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addSession(selectedBook.id),
-    className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
-  }, "＋ 記録を保存"), logMsg && /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-emerald-700 mt-2"
-  }, logMsg)), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold mb-3"
-  }, "この本へのコメント"), /*#__PURE__*/React.createElement("div", {
-    className: "mb-4"
-  }, /*#__PURE__*/React.createElement("textarea", {
-    value: commentText,
-    onChange: e => setCommentText(e.target.value),
-    placeholder: "感想・メモを書く…",
-    rows: 4,
-    className: "w-full border border-stone-300 rounded-lg px-3 py-2.5 resize-y leading-relaxed"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addComment(selectedBook.id),
-    className: "mt-2 bg-slate-900 text-white rounded-lg px-5 py-2 font-semibold hover:bg-slate-700"
-  }, "コメントを追加")), data.comments.filter(c => c.bookId === selectedBook.id).length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "まだコメントがありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "space-y-2"
-  }, data.comments.filter(c => c.bookId === selectedBook.id).slice().reverse().map(c => /*#__PURE__*/React.createElement("li", {
-    key: c.id,
-    className: "bg-stone-50 rounded-lg px-3 py-2.5 flex justify-between gap-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm whitespace-pre-wrap"
-  }, c.text), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-stone-400 mt-1"
-  }, fmtDate(c.date))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteComment(c.id),
-    className: "text-stone-300 hover:text-red-600 shrink-0 self-start text-xs"
-  }, "削除"))))), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold mb-3"
-  }, "読書履歴"), data.sessions.filter(s => s.bookId === selectedBook.id).length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "まだ記録がありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "divide-y divide-stone-100"
-  }, data.sessions.filter(s => s.bookId === selectedBook.id).slice().reverse().map(s => /*#__PURE__*/React.createElement("li", {
-    key: s.id,
-    className: "py-2 flex justify-between text-sm"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-stone-600"
-  }, fmtDate(s.date), "\u3000p.", s.startPage, " → p.", s.endPage), /*#__PURE__*/React.createElement("span", {
-    className: "font-semibold"
-  }, s.pages, "ページ")))))), tab === "stats" && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, [["week", "週間"], ["month", "月間"], ["year", "年間"], ["all", "全体"]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
-    key: id,
-    onClick: () => setRange(id),
-    className: `px-4 py-2 rounded-full text-sm font-semibold transition-colors ${range === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 hover:bg-stone-200"}`
-  }, label))), /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-baseline justify-between mb-4"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-lg"
-  }, range === "week" ? "直近7日間" : range === "month" ? "直近30日間" : range === "all" ? "全期間" : `${new Date().getFullYear()}年（月別）`), /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-stone-500"
-  }, "合計 ", /*#__PURE__*/React.createElement("span", {
-    className: "font-bold text-slate-800 text-lg"
-  }, rangeTotal), " ページ")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-stone-50 rounded-lg px-3 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500"
-  }, "1日あたりの平均（", rangeDays, "日）"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xl font-bold text-slate-800"
-  }, avgPerDay, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal text-stone-500 ml-1"
-  }, "ページ"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-stone-50 rounded-lg px-3 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500"
-  }, "読んだ日だけの平均（", activeDays, "日）"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xl font-bold text-slate-800"
-  }, avgPerActiveDay, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal text-stone-500 ml-1"
-  }, "ページ")))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: "100%"
-    }
-  }, /*#__PURE__*/React.createElement(SimpleBarChart, {
-    data: chartData
-  }))),
-  /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-4 flex-wrap gap-2"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-lg"
-  }, "期間別の記録"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 items-center"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
-  }, [["month", "月ごと"], ["year", "年ごと"]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
-    key: id,
-    onClick: () => switchPeriodType(id),
-    className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${periodType === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-100"}`
-  }, label))), /*#__PURE__*/React.createElement("select", {
-    value: selectedPeriod,
-    onChange: e => setSelectedPeriod(e.target.value),
-    className: "border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white"
-  }, periodOptions.map(p => /*#__PURE__*/React.createElement("option", {
-    key: p,
-    value: p
-  }, fmtPeriod(p)))))), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-emerald-50 rounded-lg px-3 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-emerald-700"
-  }, "読了した本"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xl font-bold text-emerald-800"
-  }, finishedInPeriod.length, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal ml-1"
-  }, "冊"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 rounded-lg px-3 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500"
-  }, "読んだページ"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xl font-bold text-slate-800"
-  }, periodPages, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal text-stone-500 ml-1"
-  }, "ページ")))), /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold text-sm text-stone-700 mb-2"
-  }, "読了リスト"), finishedInPeriod.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm mb-5"
-  }, "この期間に読了した本はありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "divide-y divide-stone-100 mb-5"
-  }, finishedInPeriod.map(b => /*#__PURE__*/React.createElement("li", {
-    key: b.id,
-    className: "py-2.5 flex items-center gap-2.5"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-1.5 h-8 rounded-sm shrink-0",
-    style: {
-      backgroundColor: spineColor(b.id)
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0 flex-1"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-medium truncate"
-  }, b.title), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500 truncate"
-  }, b.author, b.genre ? ` ・ ${b.genre}` : "")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500 shrink-0"
-  }, fmtDate(b.finishedDate))))), /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold text-sm text-stone-700 mb-2"
-  }, "ジャンル別"), periodPages === 0 && finishedInPeriod.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "この期間の記録はありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "space-y-2.5"
-  }, genreStats.map(g => /*#__PURE__*/React.createElement("li", {
-    key: g.genre,
-    className: g.pages === 0 && g.books === 0 ? "opacity-40" : ""
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between text-sm mb-1"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-medium flex items-center gap-1.5"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-2.5 h-2.5 rounded-sm inline-block",
-    style: {
-      backgroundColor: GENRE_COLORS[g.genre] || GENRE_COLORS["未分類"]
-    }
-  }), g.genre), /*#__PURE__*/React.createElement("span", {
-    className: "text-stone-600"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-bold text-slate-800"
-  }, g.books), "冊 ・ ", /*#__PURE__*/React.createElement("span", {
-    className: "font-bold text-slate-800"
-  }, g.pages), "ページ")), /*#__PURE__*/React.createElement("div", {
-    className: "h-2 bg-stone-200 rounded-full overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-full rounded-full",
-    style: {
-      width: `${periodPages === 0 ? 0 : g.pages / periodPages * 100}%`,
-      backgroundColor: GENRE_COLORS[g.genre] || GENRE_COLORS["未分類"]
-    }
-  }))))))), tab === "comments" && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("input", {
-    value: searchQuery,
-    onChange: e => setSearchQuery(e.target.value),
-    placeholder: "🔍 コメント・タイトル・著者名で検索…",
-    className: "w-full border border-stone-300 rounded-xl px-4 py-3 bg-white shadow-sm"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-stone-500"
-  }, searchResults.length, "件のコメント"), searchResults.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm bg-white rounded-xl p-5"
-  }, "該当するコメントがありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "space-y-3"
-  }, searchResults.slice().reverse().map(c => {
-    const b = data.books.find(x => x.id === c.bookId);
-    return /*#__PURE__*/React.createElement("li", {
-      key: c.id,
-      className: "bg-white rounded-xl shadow-sm p-4 flex gap-3"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-2 rounded-sm shrink-0",
-      style: {
-        backgroundColor: b ? spineColor(b.id) : "#999"
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("p", {
-      className: "text-sm whitespace-pre-wrap"
-    }, c.text), /*#__PURE__*/React.createElement("p", {
-      className: "text-xs text-stone-400 mt-1.5"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "font-semibold text-stone-500"
-    }, b ? `${b.title}（${b.author}）` : "（削除された本）"), "\u3000", fmtDate(c.date))));
-  }))), tab === "admin" && isMaster && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("section", {
-    className: "bg-white rounded-xl shadow-sm p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-4"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-lg"
-  }, "アカウント管理"), /*#__PURE__*/React.createElement("button", {
-    onClick: loadAccounts,
-    className: "text-sm text-slate-600 hover:text-slate-900 bg-stone-100 hover:bg-stone-200 rounded-lg px-3 py-1.5"
-  }, adminLoading ? "読み込み中…" : "更新")), adminLoading ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "読み込み中…") : adminAccounts.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "登録済みのアカウントがありません。") : /*#__PURE__*/React.createElement("ul", {
-    className: "divide-y divide-stone-100"
-  }, adminAccounts.map(a => /*#__PURE__*/React.createElement("li", {
-    key: a.userId,
-    className: "py-3 flex items-center justify-between gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-medium truncate"
-  }, a.email, a.email === MASTER_EMAIL && /*#__PURE__*/React.createElement("span", {
-    className: "ml-1.5 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-semibold"
-  }, "マスター")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-stone-500 mt-0.5"
-  }, a.books, "冊 ・ 累計", a.pages, "ページ ・ コメント", a.comments, "件")), a.email !== MASTER_EMAIL && /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteAccountData(a.userId, a.email),
-    className: "text-stone-400 hover:text-red-600 text-xs shrink-0"
-  }, "データ削除")))), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-stone-400 mt-4"
-  }, "「データ削除」はその利用者の読書データを削除します。アカウント自体の削除はSupabaseダッシュボードのAuthentication画面から行えます。マスターアカウントのデータは削除できません。")))));
+function setAuthMode(m){
+  authMode = m;
+  $("tab-login").classList.toggle("active", m==="login");
+  $("tab-signup").classList.toggle("active", m==="signup");
+  $("auth-submit").textContent = m==="login" ? "ログイン" : "登録する";
+  $("auth-msg").textContent = "";
 }
-try {
-  ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
-} catch (e) {
-  const box = document.getElementById("fatal-error");
-  if (box) {
-    box.style.display = "block";
-    box.textContent = "エラーが発生しました。このメッセージのスクリーンショットを共有してください:\n\n" + e.message;
+async function doAuth(){
+  const email = $("auth-email").value.trim(), password = $("auth-pass").value;
+  const msg = $("auth-msg"); msg.className="err"; msg.textContent = "";
+  if (!email || !password){ msg.textContent = "メールアドレスとパスワードを入力してください。"; return; }
+  $("auth-submit").disabled = true;
+  try{
+    if (authMode === "login"){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      enterApp(data.user);
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.session) enterApp(data.user);
+      else { msg.className="ok"; msg.textContent = "確認メールを送信しました。メール内のリンクを開いてからログインしてください。"; }
+    }
+  }catch(e){ msg.className="err"; msg.textContent = translateAuthError(e.message); }
+  finally{ $("auth-submit").disabled = false; }
+}
+function translateAuthError(m){
+  if (/Invalid login credentials/i.test(m)) return "メールアドレスまたはパスワードが違います。";
+  if (/already registered/i.test(m)) return "このメールアドレスは登録済みです。ログインしてください。";
+  if (/at least 6/i.test(m)) return "パスワードは6文字以上にしてください。";
+  if (/valid email/i.test(m)) return "メールアドレスの形式が正しくありません。";
+  return "エラー：" + m;
+}
+async function enterApp(user){
+  currentUser = user;
+  isMaster = (user.email || "").toLowerCase() === MASTER_EMAIL.toLowerCase();
+  $("auth-screen").classList.add("hidden");
+  $("app-screen").classList.remove("hidden");
+  $("who-email").textContent = user.email;
+  $("who-master").classList.toggle("hidden", !isMaster);
+  $("tab-admin").classList.toggle("hidden", !isMaster);
+  // 作品・累計・本日の記録を同時に取りに行く（順番待ちをしない）
+  await Promise.all([loadWorks(), refreshToday()]);
+}
+
+/* =====================================================================
+   共通
+   ===================================================================== */
+function bindApp(){
+  $("btn-logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  document.querySelectorAll(".tabbar button").forEach(b => { b.onclick = () => showPage(b.dataset.page); });
+
+  $("btn-save-record").onclick = saveRecord;
+  $("rec-work").onchange = updateAmountLabel;
+  document.querySelectorAll("#rec-mode button").forEach(b => {
+    b.onclick = () => {
+      recMode = b.dataset.m;
+      document.querySelectorAll("#rec-mode button").forEach(x => x.classList.toggle("active", x===b));
+      $("rec-range").classList.toggle("hidden", recMode !== "range");
+      $("rec-amount").classList.toggle("hidden", recMode !== "delta");
+      updateRecCalc();
+    };
+  });
+  ["rec-start","rec-end","rec-amount"].forEach(id => $(id).addEventListener("input", updateRecCalc));
+
+  document.querySelectorAll("#wm-mode button").forEach(b => {
+    b.onclick = () => {
+      wmMode = b.dataset.m;
+      document.querySelectorAll("#wm-mode button").forEach(x => x.classList.toggle("active", x===b));
+      $("wm-range").classList.toggle("hidden", wmMode !== "range");
+      $("wm-delta-row").classList.toggle("hidden", wmMode !== "delta");
+      updateWmCalc();
+    };
+  });
+  ["wm-start","wm-end","wm-amount"].forEach(id => $(id).addEventListener("input", updateWmCalc));
+  $("btn-add-work").onclick = addWork;
+  document.querySelectorAll("#status-tabs button").forEach(b => {
+    b.onclick = () => {
+      workFilterStatus = b.dataset.s;
+      document.querySelectorAll("#status-tabs button").forEach(x => x.classList.toggle("active", x===b));
+      renderWorksList();
+    };
+  });
+  document.querySelectorAll("#cat-filter-chips button").forEach(b => {
+    b.onclick = () => {
+      workFilterCat = b.dataset.c;
+      document.querySelectorAll("#cat-filter-chips button").forEach(x => x.classList.toggle("active", x===b));
+      renderWorksList();
+    };
+  });
+  document.querySelectorAll("#work-cat-chips button").forEach(b => {
+    b.onclick = () => {
+      workNewCat = b.dataset.c;
+      document.querySelectorAll("#work-cat-chips button").forEach(x => x.classList.toggle("active", x===b));
+      $("work-cat-note").textContent = workNewCat==="俳句" ? "俳句は句数で記録されます。" : "";
+    };
+  });
+  $("cm-filter").onchange = renderComments;
+
+  $("goal-badge").onclick = openGoalModal;
+  $("btn-open-goal").onclick = openGoalModal;
+  $("goal-modal-close").onclick = () => closeModal("goal-modal");
+  $("goal-modal-save").onclick = saveGoal;
+  $("goal-modal-clear").onclick = clearGoal;
+
+  $("wm-close").onclick = () => closeModal("work-modal");
+  $("wm-add").onclick = wmAddRecord;
+  $("wm-amount").addEventListener("keydown", e => { if(e.key==="Enter") wmAddRecord(); });
+  $("wm-comment-save").onclick = wmAddComment;
+  document.querySelectorAll("#wm-cm-kind button").forEach(b => {
+    b.onclick = () => { wmCmKind = b.dataset.k; syncKindUI(); renderWorkComments(); };
+  });
+  document.querySelectorAll("#wm-cm-tags button[data-t]").forEach(b => {
+    b.onclick = () => {
+      wmCmTag = b.dataset.t;
+      document.querySelectorAll("#wm-cm-tags button[data-t]").forEach(x => x.classList.toggle("active", x===b));
+      renderWorkComments();
+    };
+  });
+  document.querySelectorAll("#wm-new-tags button").forEach(b => {
+    b.onclick = () => {
+      wmNewTag = (wmNewTag === b.dataset.t) ? "" : b.dataset.t;
+      document.querySelectorAll("#wm-new-tags button").forEach(x =>
+        x.classList.toggle("active", x.dataset.t === wmNewTag));
+    };
+  });
+  $("wm-mix").onclick = () => openMix(detailWorkId);
+
+  document.querySelectorAll("#cm-kind button").forEach(b => {
+    b.onclick = () => {
+      cmKind = b.dataset.k;
+      document.querySelectorAll("#cm-kind button").forEach(x => x.classList.toggle("active", x===b));
+      $("cm-tags").classList.toggle("hidden", cmKind !== "アイデア");
+      renderComments();
+    };
+  });
+  document.querySelectorAll("#cm-tags button[data-t]").forEach(b => {
+    b.onclick = () => {
+      cmTag = b.dataset.t;
+      document.querySelectorAll("#cm-tags button[data-t]").forEach(x => x.classList.toggle("active", x===b));
+      renderComments();
+    };
+  });
+  $("cm-mix").onclick = () => openMix($("cm-filter").value || null);
+  $("mix-close").onclick = closeMix;
+  document.querySelectorAll("#wm-status-tabs button").forEach(b => {
+    b.onclick = () => wmSetStatus(b.dataset.s);
+  });
+  $("wm-rename").onclick = wmRename;
+  $("wm-delete").onclick = wmDelete;
+
+  ["goal-modal","work-modal"].forEach(id => {
+    $(id).addEventListener("click", e => { if (e.target === $(id)) closeModal(id); });
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") ["goal-modal","work-modal"].forEach(closeModal);
+  });
+
+  document.querySelectorAll("#period-tabs button").forEach(b => {
+    b.onclick = () => {
+      currentPeriod = b.dataset.p;
+      document.querySelectorAll("#period-tabs button").forEach(x => x.classList.toggle("active", x===b));
+      renderStats();
+    };
+  });
+}
+function closeModal(id){
+  $(id).classList.add("hidden");
+  if (document.querySelectorAll(".modal-back:not(.hidden)").length === 0) document.body.style.overflow = "";
+}
+function openModal(id){ $(id).classList.remove("hidden"); document.body.style.overflow = "hidden"; }
+
+function showPage(p){
+  ["record","works","stats","comments","admin"].forEach(k => $("page-"+k).classList.toggle("hidden", k!==p));
+  document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("active", b.dataset.page===p));
+  if (p==="stats") renderStats();
+  if (p==="comments") renderComments();
+  if (p==="works") renderWorksList();
+  if (p==="admin") renderAdmin();
+  window.scrollTo({top:0});
+}
+
+/* =====================================================================
+   今日の集計・目標
+   ===================================================================== */
+async function refreshToday(){
+  const today = todayStr();
+  const [recRes, goalRes] = await Promise.all([
+    sb.from(T_RECORDS).select(`id, amount, work_id, works:${T_WORKS}(name, category)`)
+      .eq("date", today).eq("user_id", currentUser.id).order("created_at",{ascending:true}),
+    sb.from(T_GOALS).select("*").eq("user_id", currentUser.id)
+      .lte("date", today).order("date",{ascending:false}).limit(1)
+  ]);
+  const rows = recRes.data || [];
+  todayChars = 0; todayHaiku = 0; todayByWork = {};
+  rows.forEach(r => {
+    const haiku = r.works && r.works.category === "俳句";
+    if (haiku) todayHaiku += r.amount; else todayChars += r.amount;
+    todayByWork[r.work_id] = (todayByWork[r.work_id]||0) + r.amount;
+  });
+  // 直近に決めた目標をそのまま今日の目標として引き継ぐ
+  const latest = goalRes.error ? null : ((goalRes.data && goalRes.data[0]) || null);
+  todayGoal = latest ? { ...latest, date: today } : null;
+  if (latest && latest.date !== today && ((latest.target_chars||0) > 0 || (latest.target_haiku||0) > 0)){
+    // 今日の行として控えておく（記録として残し、以降の読み込みを軽くする）
+    sb.from(T_GOALS).upsert(
+      { user_id: currentUser.id, date: today,
+        target_chars: latest.target_chars || 0, target_haiku: latest.target_haiku || 0 },
+      { onConflict: "user_id,date" }).then(() => {}, () => {});
   }
+  renderTodayList(rows);
+  renderGoalBadge();
+  renderGoalButton();
+}
+function goalMet(){
+  if (!todayGoal) return false;
+  const tc = todayGoal.target_chars || 0, th = todayGoal.target_haiku || 0;
+  if (!tc && !th) return false;
+  return (!tc || todayChars >= tc) && (!th || todayHaiku >= th);
+}
+function renderGoalBadge(){
+  const b = $("goal-badge");
+  const hasGoal = todayGoal && ((todayGoal.target_chars||0) > 0 || (todayGoal.target_haiku||0) > 0);
+  const showHaiku = todayHaiku > 0 || (todayGoal && (todayGoal.target_haiku||0) > 0);
+  $("gb-num").innerHTML = fmt(todayChars) + "<small>字</small>" +
+    (showHaiku ? " / " + fmt(todayHaiku) + "<small>句</small>" : "");
+  b.classList.remove("met","none");
+  if (!hasGoal){ b.classList.add("none"); $("gb-sub").textContent = "目標を設定"; return; }
+  if (goalMet()){ b.classList.add("met"); $("gb-sub").textContent = "目標達成"; return; }
+  const parts = [];
+  if (todayGoal.target_chars) parts.push("あと" + fmt(Math.max(0, todayGoal.target_chars - todayChars)) + "字");
+  if (todayGoal.target_haiku) parts.push("あと" + fmt(Math.max(0, todayGoal.target_haiku - todayHaiku)) + "句");
+  $("gb-sub").textContent = parts.join(" ");
+}
+function renderGoalButton(){
+  const btn = $("btn-open-goal"), params = $("goal-btn-params");
+  const tc = todayGoal ? (todayGoal.target_chars||0) : 0;
+  const th = todayGoal ? (todayGoal.target_haiku||0) : 0;
+  if (!tc && !th){
+    btn.classList.remove("set");
+    $("goal-btn-title").textContent = "目標を設定する";
+    $("goal-btn-edit").textContent = "";
+    params.classList.add("hidden");
+    params.innerHTML = "";
+    return;
+  }
+  btn.classList.add("set");
+  $("goal-btn-title").textContent = goalMet() ? "今日の目標 — 達成" : "今日の目標";
+  $("goal-btn-edit").textContent = "変更する";
+  const row = (name, cur, target, unit) => {
+    const pct = target ? Math.min(100, Math.round(cur/target*100)) : 0;
+    const met = cur >= target;
+    return `<span class="gp-row">
+      <span class="gp-name">${name}</span>
+      <span class="gp-bar"><i class="${met?"met":""}" style="width:${pct}%"></i></span>
+      <span class="gp-val"><b>${fmt(cur)}</b> / ${fmt(target)} ${unit}</span>
+    </span>`;
+  };
+  let html = "";
+  if (tc) html += row("文字数", todayChars, tc, "字");
+  if (th) html += row("句数", todayHaiku, th, "句");
+  params.innerHTML = html;
+  params.classList.remove("hidden");
+}
+function openGoalModal(){
+  $("goal-modal-sub").textContent = dayStr(new Date());
+  $("goal-chars").value = todayGoal && todayGoal.target_chars ? todayGoal.target_chars : "";
+  $("goal-haiku").value = todayGoal && todayGoal.target_haiku ? todayGoal.target_haiku : "";
+  $("goal-modal-msg").textContent = "";
+  openModal("goal-modal");
+}
+async function saveGoal(){
+  const msg = $("goal-modal-msg"); msg.className="err"; msg.textContent="";
+  const tc = parseInt($("goal-chars").value,10) || 0;
+  const th = parseInt($("goal-haiku").value,10) || 0;
+  if (tc <= 0 && th <= 0){ msg.textContent = "文字数か句数のどちらかに目標を入れてください。"; return; }
+  const { error } = await sb.from(T_GOALS).upsert(
+    { user_id: currentUser.id, date: todayStr(), target_chars: tc, target_haiku: th },
+    { onConflict: "user_id,date" });
+  if (error){ msg.textContent = "保存できませんでした：" + error.message; return; }
+  await refreshToday();
+  closeModal("goal-modal");
+}
+async function clearGoal(){
+  if (!confirm("目標を取り消しますか？\n以降の日にも引き継がれなくなります。")) return;
+  const { error } = await sb.from(T_GOALS).upsert(
+    { user_id: currentUser.id, date: todayStr(), target_chars: 0, target_haiku: 0 },
+    { onConflict: "user_id,date" });
+  if (error){ $("goal-modal-msg").textContent = "取り消せませんでした：" + error.message; return; }
+  await refreshToday();
+  closeModal("goal-modal");
+}
+
+/* =====================================================================
+   記録する
+   ===================================================================== */
+async function saveRecord(){
+  const msg = $("rec-msg"); msg.className="err"; msg.textContent = "";
+  const workId = $("rec-work").value;
+  if (!workId){ msg.textContent = "作品を選んでください。まだ無ければ書斎でつくれます。"; return; }
+  const w = works.find(x=>x.id===workId);
+  const unit = unitOf(w ? w.category : "");
+
+  const row = { user_id: currentUser.id, work_id: workId, date: todayStr() };
+  if (recMode === "range"){
+    const r = calcDiff("rec-start","rec-end");
+    if (!r){ msg.textContent = "開始と終了の数を入力してください。"; return; }
+    if (r.diff < 0){ msg.textContent = "終了は開始より大きい数にしてください。"; return; }
+    row.amount = r.diff; row.start_amount = r.st; row.end_amount = r.en;
+  } else {
+    const a = parseInt($("rec-amount").value, 10);
+    if (!(a >= 0)){ msg.textContent = "数を入力してください。"; return; }
+    row.amount = a;
+  }
+  const { error } = await sb.from(T_RECORDS).insert(row);
+  if (error){ msg.textContent = translateWriteError(error.message); return; }
+  msg.className = "ok";
+  msg.textContent = `記録しました：${w?w.name:""} ${fmt(row.amount)}${unit}`;
+  await loadWorkStats();
+  updateAmountLabel();
+  await refreshToday();
+}
+function translateWriteError(m){
+  if (/row-level security|violates row-level/i.test(m))
+    return "保存できませんでした。アカウントが停止されているか、setup.sql が未実行の可能性があります。";
+  return "保存できませんでした：" + m;
+}
+function renderTodayList(rows){
+  $("rec-today-empty").classList.toggle("hidden", rows.length>0);
+  $("rec-today-list").innerHTML = rows.map(r => {
+    const nm = r.works ? r.works.name : "（削除済の作品）";
+    const cat = r.works ? r.works.category : "";
+    return `<li>
+      <div class="rec-main">
+        <span class="t1">${esc(nm)}</span>
+        <span><span class="tag ${cat==="俳句"?"tag-haiku":""}">${esc(cat)}</span>${
+          (r.start_amount != null && r.end_amount != null)
+            ? ` <span class="t2">${fmt(r.start_amount)} → ${fmt(r.end_amount)}</span>` : ""}</span>
+      </div>
+      <span class="rec-amt">${fmt(r.amount)}<small>${unitOf(cat)}</small></span>
+      <button class="btn btn-ghost btn-sm" onclick="deleteRecord('${r.id}')">取消</button>
+    </li>`;
+  }).join("");
+}
+async function deleteRecord(id){
+  if (!confirm("この記録を取り消しますか？")) return;
+  const { error } = await sb.from(T_RECORDS).delete().eq("id", id);
+  if (error){ alert("取消できませんでした：" + error.message); return; }
+  await loadWorkStats();
+  updateAmountLabel();
+  await refreshToday();
+  await renderWorksList();
+}
+
+/* =====================================================================
+   書斎（作品管理）
+   ===================================================================== */
+async function loadWorkStats(){
+  const { data, error } = await sb.from(T_RECORDS)
+    .select("work_id, amount, end_amount, date, created_at")
+    .eq("user_id", currentUser.id)
+    .order("date",{ascending:true}).order("created_at",{ascending:true});
+  if (error){ console.error(error); return; }
+  workTotals = {}; workPos = {};
+  (data||[]).forEach(r => {
+    workTotals[r.work_id] = (workTotals[r.work_id]||0) + r.amount;
+    if (r.end_amount != null) workPos[r.work_id] = r.end_amount;  // 時系列順なので最後が残る
+  });
+  Object.keys(workTotals).forEach(k => { if (workPos[k] == null) workPos[k] = workTotals[k]; });
+}
+async function loadWorks(){
+  const [{ data, error }] = await Promise.all([
+    sb.from(T_WORKS).select("*").eq("user_id", currentUser.id).order("created_at",{ascending:true}),
+    loadWorkStats()
+  ]);
+  if (error){ console.error(error); return; }
+  works = data || [];
+  fillWorkSelects();
+  // 作品一覧は書斎を開いているときだけ描く（起動時の待ちを減らす）
+  if (!$("page-works").classList.contains("hidden")) await renderWorksList();
+}
+function fillWorkSelects(){
+  const opts = works.map(w => {
+    const done = (w.status||"執筆中") === "完成";
+    return `<option value="${w.id}">${esc(w.name)}（${esc(w.category)}${done?"・完成":""}）</option>`;
+  }).join("");
+  $("rec-work").innerHTML = `<option value="">— 作品を選択 —</option>` + opts;
+  const cur = $("cm-filter").value;
+  $("cm-filter").innerHTML = `<option value="">すべての作品</option>` + opts;
+  if (cur) $("cm-filter").value = cur;
+  updateAmountLabel();
+}
+function calcDiff(startEl, endEl){
+  const st = parseInt($(startEl).value, 10);
+  const en = parseInt($(endEl).value, 10);
+  if (!(st >= 0) || !(en >= 0)) return null;
+  return { st, en, diff: en - st };
+}
+function showCalc(calcId, diff, unit){
+  const el = $(calcId);
+  el.classList.remove("zero","minus");
+  if (diff == null){ el.innerHTML = ""; return; }
+  if (diff < 0){
+    el.classList.add("minus");
+    el.innerHTML = `<b>${fmt(diff)}</b> ${unit}　終了は開始より大きい数にしてください`;
+    return;
+  }
+  if (diff === 0) el.classList.add("zero");
+  el.innerHTML = `この日書いた分　<b>${fmt(diff)}</b> ${unit}`;
+}
+function updateRecCalc(){
+  const w = works.find(x => x.id === $("rec-work").value);
+  const unit = unitOf(w ? w.category : "");
+  if (recMode !== "range"){
+    const a = parseInt($("rec-amount").value, 10);
+    showCalc("rec-calc", a >= 0 ? a : null, unit);
+    return;
+  }
+  const r = calcDiff("rec-start","rec-end");
+  showCalc("rec-calc", r ? r.diff : null, unit);
+}
+function updateWmCalc(){
+  const w = works.find(x => x.id === detailWorkId);
+  const unit = unitOf(w ? w.category : "");
+  if (wmMode !== "range"){
+    const a = parseInt($("wm-amount").value, 10);
+    showCalc("wm-calc", a >= 0 ? a : null, unit);
+    return;
+  }
+  const r = calcDiff("wm-start","wm-end");
+  showCalc("wm-calc", r ? r.diff : null, unit);
+}
+function updateAmountLabel(){
+  const w = works.find(x => x.id === $("rec-work").value);
+  const haiku = w && w.category === "俳句";
+  $("rec-amount-label").textContent = haiku ? "句数" : "文字数";
+  $("rec-start").value = w ? (workPos[w.id] || 0) : "";
+  $("rec-end").value = "";
+  $("rec-amount").value = "";
+  updateRecCalc();
+}
+async function addWork(){
+  const name = $("work-name").value.trim(), category = workNewCat;
+  const msg = $("work-msg"); msg.className="err"; msg.textContent = "";
+  if (!name){ msg.textContent = "作品名を入力してください。"; return; }
+  const { error } = await sb.from(T_WORKS).insert({ user_id: currentUser.id, name, category, status: "執筆中" });
+  if (error){ msg.textContent = translateWriteError(error.message); return; }
+  $("work-name").value = "";
+  await loadWorks();
+}
+async function renderWorksList(){
+  const box = $("works-list");
+  if (!works.length){
+    box.innerHTML = "";
+    $("works-empty").textContent = "まだ作品がありません。上からつくってください。";
+    $("works-empty").classList.remove("hidden");
+    return;
+  }
+  const [, { data: cms }] = await Promise.all([
+    loadWorkStats(),
+    sb.from(T_COMMENTS).select("work_id").eq("user_id", currentUser.id)
+  ]);
+  const totals = workTotals;
+  commentCounts = {};
+  (cms||[]).forEach(c => commentCounts[c.work_id] = (commentCounts[c.work_id]||0) + 1);
+
+  const shown = works.filter(w => {
+    const st = w.status || "執筆中";
+    if (workFilterStatus !== "all" && st !== workFilterStatus) return false;
+    if (workFilterCat !== "all" && w.category !== workFilterCat) return false;
+    return true;
+  });
+  if (!shown.length){
+    box.innerHTML = "";
+    $("works-empty").textContent = "この条件に当てはまる作品はありません。";
+    $("works-empty").classList.remove("hidden");
+    return;
+  }
+  $("works-empty").classList.add("hidden");
+
+  box.innerHTML = shown.map(w => {
+    const st = w.status || "執筆中";
+    const done = st === "完成";
+    const unit = unitOf(w.category);
+    const n = commentCounts[w.id] || 0, t = todayByWork[w.id] || 0;
+    return `<button class="work-card ${done?"done":""}" type="button" onclick="openWorkModal('${w.id}')">
+      <div class="work-top">
+        <div class="name">${esc(w.name)}</div>
+        <span class="status-chip ${done?"done":""}">${st}</span>
+      </div>
+      <div class="work-meta">
+        <span class="tag ${w.category==="俳句"?"tag-haiku":""}">${esc(w.category)}</span>
+        <span>累計 <b>${fmt(totals[w.id]||0)}</b> ${unit}</span>
+        ${t ? `<span class="today-add">本日 ${fmt(t)} ${unit}</span>` : ""}
+        ${n ? `<span class="cm-count">コメント ${n}</span>` : ""}
+      </div>
+    </button>`;
+  }).join("");
+}
+async function renameWork(id){
+  const w = works.find(x=>x.id===id); if(!w) return;
+  const name = prompt("新しい作品名", w.name);
+  if (!name || !name.trim()) return;
+  const { error } = await sb.from(T_WORKS).update({ name: name.trim() }).eq("id", id);
+  if (error) alert("変更できませんでした：" + error.message);
+  await loadWorks();
+}
+async function deleteWork(id){
+  const w = works.find(x=>x.id===id); if(!w) return;
+  if (!confirm(`「${w.name}」を削除します。\nこの作品の記録とコメントも消えます。よろしいですか？`)) return;
+  const { error } = await sb.from(T_WORKS).delete().eq("id", id);
+  if (error){ alert("削除できませんでした：" + error.message); return; }
+  await loadWorks();
+  await refreshToday();
+}
+
+/* ---- 作品詳細モーダル ---- */
+async function openWorkModal(workId){
+  const w = works.find(x=>x.id===workId); if(!w) return;
+  detailWorkId = workId;
+  $("wm-comment").value = "";
+  $("wm-add-msg").textContent = "";
+  $("wm-comment-msg").textContent = "";
+  wmCmKind = "アイデア"; wmCmTag = "all"; wmNewTag = "";
+  document.querySelectorAll("#wm-cm-tags button[data-t]").forEach(x => x.classList.toggle("active", x.dataset.t==="all"));
+  document.querySelectorAll("#wm-new-tags button").forEach(x => x.classList.remove("active"));
+  syncKindUI();
+  renderWorkModalHead();
+  wmResetInputs();
+  openModal("work-modal");
+  await Promise.all([renderWorkHistory(), renderWorkComments()]);
+}
+function syncKindUI(){
+  document.querySelectorAll("#wm-cm-kind button").forEach(b =>
+    b.classList.toggle("active", b.dataset.k === wmCmKind));
+  const idea = wmCmKind === "アイデア";
+  $("wm-cm-tags").classList.toggle("hidden", !idea);
+  $("wm-new-tags").classList.toggle("hidden", !idea);
+  $("wm-comment-save").textContent = idea ? "書き残す" : "To Doに加える";
+}
+function renderWorkModalHead(){
+  const w = works.find(x=>x.id===detailWorkId); if(!w) return;
+  const st = w.status || "執筆中";
+  const unit = unitOf(w.category);
+  $("wm-title").textContent = w.name;
+  $("wm-genre").innerHTML = `<span class="tag ${w.category==="俳句"?"tag-haiku":""}">${esc(w.category)}</span>`;
+  document.querySelectorAll("#wm-status-tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.s === st));
+  $("wm-add-label").textContent = (w.category==="俳句"?"句数":"文字数") + "を追加";
+  $("wm-today").innerHTML = fmt(todayByWork[w.id]||0) + `<small>${unit}</small>`;
+}
+async function renderWorkHistory(){
+  const w = works.find(x=>x.id===detailWorkId); if(!w) return;
+  const unit = unitOf(w.category);
+  const { data, error } = await sb.from(T_RECORDS)
+    .select("id, date, amount, start_amount, end_amount")
+    .eq("work_id", detailWorkId)
+    .order("date",{ascending:false}).order("created_at",{ascending:false})
+    .limit(200);
+  if (error){ console.error(error); return; }
+  const rows = data || [];
+  const total = rows.reduce((a,r)=>a+r.amount,0);
+  $("wm-total").innerHTML = fmt(total) + `<small>${unit}</small>`;
+  $("wm-history-empty").classList.toggle("hidden", rows.length>0);
+  const today = todayStr();
+  $("wm-history").innerHTML = rows.map(r => {
+    const d = r.date === today ? "本日" :
+      new Date(r.date+"T00:00:00").toLocaleDateString("ja-JP",{year:"numeric",month:"numeric",day:"numeric"});
+    const range = (r.start_amount != null && r.end_amount != null)
+      ? `<span class="t2">${fmt(r.start_amount)} → ${fmt(r.end_amount)}</span>` : "";
+    return `<li>
+      <div class="rec-main"><span class="t1">${d}</span>${range}</div>
+      <span class="rec-amt">${fmt(r.amount)}<small>${unit}</small></span>
+      <button class="btn btn-ghost btn-sm" onclick="wmDeleteRecord('${r.id}')">取消</button>
+    </li>`;
+  }).join("");
+}
+async function wmAddRecord(){
+  const msg = $("wm-add-msg"); msg.className="err"; msg.textContent="";
+  const w = works.find(x=>x.id===detailWorkId); if(!w) return;
+  const unit = unitOf(w.category);
+
+  const row = { user_id: currentUser.id, work_id: detailWorkId, date: todayStr() };
+  if (wmMode === "range"){
+    const r = calcDiff("wm-start","wm-end");
+    if (!r){ msg.textContent = "開始と終了の数を入力してください。"; return; }
+    if (r.diff < 0){ msg.textContent = "終了は開始より大きい数にしてください。"; return; }
+    row.amount = r.diff; row.start_amount = r.st; row.end_amount = r.en;
+  } else {
+    const a = parseInt($("wm-amount").value,10);
+    if (!(a >= 0)){ msg.textContent = "数を入力してください。"; return; }
+    row.amount = a;
+  }
+  const { error } = await sb.from(T_RECORDS).insert(row);
+  if (error){ msg.textContent = translateWriteError(error.message); return; }
+  msg.className="ok"; msg.textContent = `記録しました：${fmt(row.amount)}${unit}`;
+  await loadWorkStats();
+  wmResetInputs();
+  await refreshToday();
+  renderWorkModalHead();
+  await renderWorkHistory();
+  await renderWorksList();
+}
+function wmResetInputs(){
+  const w = works.find(x=>x.id===detailWorkId);
+  $("wm-start").value = w ? (workPos[w.id] || 0) : "";
+  $("wm-end").value = "";
+  $("wm-amount").value = "";
+  updateWmCalc();
+}
+async function wmDeleteRecord(id){
+  if (!confirm("この記録を取り消しますか？")) return;
+  const { error } = await sb.from(T_RECORDS).delete().eq("id", id);
+  if (error){ alert("取消できませんでした：" + error.message); return; }
+  await loadWorkStats();
+  wmResetInputs();
+  await refreshToday();
+  renderWorkModalHead();
+  await renderWorkHistory();
+  await renderWorksList();
+}
+async function renderWorkComments(){
+  let q = sb.from(T_COMMENTS).select("*").eq("work_id", detailWorkId).eq("kind", wmCmKind);
+  if (wmCmKind === "アイデア" && wmCmTag !== "all") q = q.eq("idea_tag", wmCmTag);
+  const { data, error } = await q.order("created_at",{ascending:false});
+  if (error){ console.error(error); return; }
+  let rows = data || [];
+  if (wmCmKind === "ToDo") rows.sort((a,b) => (a.done===b.done) ? 0 : (a.done ? 1 : -1));
+  $("wm-comments-empty").classList.toggle("hidden", rows.length>0);
+  $("wm-comments-empty").textContent = wmCmKind==="ToDo" ? "To Doはまだありません。" : "まだアイデアがありません。";
+  $("wm-comments").innerHTML = rows.map(c => commentItemHTML(c, true)).join("");
+}
+function commentItemHTML(c, inModal, workLabel){
+  const edited = c.updated_at && c.updated_at !== c.created_at ? "（編集済）" : "";
+  const head = workLabel || "";
+  if (c.kind === "ToDo"){
+    return `<div class="todo-item ${c.done?"done":""}" id="cm-${c.id}">
+      <button class="todo-check" type="button" onclick="toggleTodo('${c.id}', ${inModal}, event)">✓</button>
+      <div class="todo-body">
+        <div class="todo-text body tap-edit" onclick="startEditComment('${c.id}', ${inModal})">${esc(c.body)}</div>
+        <div class="todo-when">${head}${whenStr(c.created_at)}${edited}</div>
+      </div>
+      <span class="cm-btns">
+        <button class="btn btn-ghost btn-sm" onclick="deleteComment('${c.id}', ${inModal})">削除</button>
+      </span>
+    </div>`;
+  }
+  return `<div class="comment-item" id="cm-${c.id}">
+    <div class="head">
+      <span class="src">
+        ${head}
+        ${c.idea_tag ? `<span class="tag">${esc(c.idea_tag)}</span>` : ""}
+        <span class="when">${whenStr(c.created_at)}${edited}</span>
+      </span>
+      <span class="cm-btns">
+        <button class="btn btn-ghost btn-sm" onclick="deleteComment('${c.id}', ${inModal})">削除</button>
+      </span>
+    </div>
+    <div class="body tap-edit" onclick="startEditComment('${c.id}', ${inModal})">${esc(c.body)}</div>
+  </div>`;
+}
+async function wmAddComment(){
+  const msg = $("wm-comment-msg"); msg.className="err"; msg.textContent = "";
+  const body = $("wm-comment").value.trim();
+  if (!body){ msg.textContent = wmCmKind==="ToDo" ? "To Doを入力してください。" : "アイデアを入力してください。"; return; }
+  const row = { user_id: currentUser.id, work_id: detailWorkId, body, kind: wmCmKind };
+  if (wmCmKind === "アイデア" && wmNewTag) row.idea_tag = wmNewTag;
+  const { error } = await sb.from(T_COMMENTS).insert(row);
+  if (error){ msg.textContent = translateWriteError(error.message); return; }
+  $("wm-comment").value = "";
+  msg.className="ok"; msg.textContent = "書き残しました。";
+  await renderWorkComments();
+  await renderWorksList();
+}
+async function toggleTodo(id, inModal, ev){
+  const item = document.getElementById("cm-" + id);
+  const nowDone = item && !item.classList.contains("done");
+  const { error } = await sb.from(T_COMMENTS).update({ done: nowDone }).eq("id", id);
+  if (error){ alert("変更できませんでした：" + error.message); return; }
+  if (nowDone && ev) celebrate(ev.clientX, ev.clientY);
+  if (inModal) await renderWorkComments(); else await renderComments();
+}
+function celebrate(x, y){
+  const colors = ["#4E9C72","#4E8B84","#B8A990","#E9C46A","#D95F55","#2B4570"];
+  for (let i=0;i<16;i++){
+    const el = document.createElement("span");
+    el.className = "confetti";
+    el.style.background = colors[i % colors.length];
+    el.style.left = x + "px"; el.style.top = y + "px";
+    document.body.appendChild(el);
+    const ang = Math.random()*Math.PI*2, dist = 46 + Math.random()*66;
+    const dx = Math.cos(ang)*dist, dy = Math.sin(ang)*dist - 34;
+    const rot = (Math.random()*540 - 270);
+    el.animate([
+      { transform:"translate(-50%,-50%)", opacity:1 },
+      { transform:`translate(calc(-50% + ${dx}px), calc(-50% + ${dy + 46}px)) rotate(${rot}deg)`, opacity:0 }
+    ], { duration: 650 + Math.random()*350, easing:"cubic-bezier(.16,.8,.4,1)" })
+      .onfinish = () => el.remove();
+  }
+}
+async function wmSetStatus(next){
+  const w = works.find(x=>x.id===detailWorkId); if(!w) return;
+  if ((w.status||"執筆中") === next) return;
+  const { error } = await sb.from(T_WORKS).update({ status: next }).eq("id", detailWorkId);
+  if (error){ alert("変更できませんでした：" + error.message); return; }
+  await loadWorks();
+  renderWorkModalHead();
+}
+async function wmRename(){
+  await renameWork(detailWorkId);
+  renderWorkModalHead();
+}
+async function wmDelete(){
+  const before = works.length;
+  await deleteWork(detailWorkId);
+  if (works.length < before) closeModal("work-modal");
+}
+
+/* =====================================================================
+   コメント
+   ===================================================================== */
+function startEditComment(id, inModal){
+  const box = document.getElementById("cm-" + id);
+  if (!box || box.querySelector(".cm-edit")) return;
+  // 他で編集中のものがあれば、そちらは閉じる（内容が変わっていなければ）
+  document.querySelectorAll(".cm-edit").forEach(w => {
+    const ta = w.querySelector("textarea"), parent = w.parentElement;
+    const orig = parent.querySelector(".body");
+    if (ta && orig && ta.value.trim() === orig.textContent.trim()){
+      w.remove();
+      orig.classList.remove("hidden");
+      const btns = parent.querySelector(".cm-btns"); if (btns) btns.classList.remove("hidden");
+    }
+  });
+  const bodyEl = box.querySelector(".body");
+  const current = bodyEl.textContent;
+  bodyEl.classList.add("hidden");
+  box.querySelector(".cm-btns").classList.add("hidden");
+  const wrap = document.createElement("div");
+  wrap.className = "cm-edit";
+  wrap.innerHTML = `
+    <textarea class="cm-edit-area" rows="4"></textarea>
+    <p class="err cm-edit-msg" style="margin-top:.25rem"></p>
+    <div class="cm-edit-btns">
+      <button class="btn btn-primary btn-sm" type="button">保存</button>
+      <button class="btn btn-ghost btn-sm" type="button">やめる</button>
+    </div>`;
+  const ta = wrap.querySelector("textarea");
+  ta.value = current;
+  const [saveBtn, cancelBtn] = wrap.querySelectorAll("button");
+  saveBtn.onclick = () => saveEditComment(id, inModal, ta, wrap.querySelector(".cm-edit-msg"));
+  cancelBtn.onclick = () => {
+    wrap.remove();
+    bodyEl.classList.remove("hidden");
+    box.querySelector(".cm-btns").classList.remove("hidden");
+  };
+  box.appendChild(wrap);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 14*16) + "px";
+}
+async function saveEditComment(id, inModal, ta, msgEl){
+  const body = ta.value.trim();
+  msgEl.className = "err cm-edit-msg";
+  if (!body){ msgEl.textContent = "コメントを入力してください。"; return; }
+  const { error } = await sb.from(T_COMMENTS)
+    .update({ body, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error){ msgEl.textContent = translateWriteError(error.message); return; }
+  if (inModal) await renderWorkComments();
+  else await renderComments();
+}
+async function deleteComment(id, inModal){
+  if (!confirm("このコメントを削除しますか？")) return;
+  const { error } = await sb.from(T_COMMENTS).delete().eq("id", id);
+  if (error){ alert("削除できませんでした：" + error.message); return; }
+  if (inModal){ await renderWorkComments(); await renderWorksList(); }
+  else { await renderComments(); }
+}
+async function renderComments(){
+  const filter = $("cm-filter").value;
+  let q = sb.from(T_COMMENTS).select(`id, body, kind, idea_tag, done, created_at, updated_at, work_id, works:${T_WORKS}(name, category)`)
+    .eq("user_id", currentUser.id).eq("kind", cmKind);
+  if (filter) q = q.eq("work_id", filter);
+  if (cmKind === "アイデア" && cmTag !== "all") q = q.eq("idea_tag", cmTag);
+  const { data, error } = await q.order("created_at",{ascending:false});
+  if (error){ console.error(error); return; }
+  let rows = data || [];
+  if (cmKind === "ToDo") rows.sort((a,b) => (a.done===b.done) ? 0 : (a.done ? 1 : -1));
+  $("comments-empty").classList.toggle("hidden", rows.length>0);
+  $("comments-empty").textContent = cmKind==="ToDo"
+    ? "To Doはまだありません。書斎の各作品から加えられます。"
+    : "まだアイデアがありません。書斎の各作品から書き残せます。";
+  $("comments-list").innerHTML = rows.map(c => {
+    const nm = c.works ? c.works.name : "（削除済の作品）";
+    const label = `<span class="wname">${esc(nm)}</span>`;
+    return commentItemHTML(c, false, label);
+  }).join("");
+}
+
+/* =====================================================================
+   ミックス — アイデアの言葉を空に浮かべ、共通する言葉をつなぐ
+   ===================================================================== */
+let mixAnim = null, mixNodes = [], mixLinks = [], mixSelected = null;
+
+const MIX_STOP = new Set(["する","いる","なる","ある","こと","もの","それ","これ","あれ","ため","よう","そう","ような","ように","という","といった","して","した","します","です","ます","ました","ない","たい","れる","られる","せる","させる","ください","ほか","など","まで","から","ので","けど","でも","また","その","この","あの","どの","とき","ところ","ひと","わたし","自分","感じ","思う","思った","考え","今日","本日","明日"]);
+
+function mixTokenize(text){
+  let words = [];
+  try{
+    const seg = new Intl.Segmenter("ja", { granularity:"word" });
+    for (const t of seg.segment(text)) if (t.isWordLike) words.push(t.segment);
+  }catch(_){
+    words = text.split(/[\s、。・，．,.!?！？\n「」『』()（）【】…ー〜~:：;；]+/);
+  }
+  return words.map(w => w.trim())
+    .filter(w => w.length >= 2)
+    .filter(w => !MIX_STOP.has(w))
+    .filter(w => !/^[0-9０-９]+$/.test(w))
+    .filter(w => !/^[ぁ-ん]{1,2}$/.test(w))
+    .filter(w => !/^[a-zA-Z]$/.test(w));
+}
+
+async function openMix(workId){
+  let q = sb.from(T_COMMENTS).select("body").eq("user_id", currentUser.id).eq("kind","アイデア");
+  if (workId) q = q.eq("work_id", workId);
+  const { data, error } = await q.limit(300);
+  if (error){ alert("読み込めませんでした：" + error.message); return; }
+
+  // 言葉の集計と、同じアイデアに現れた言葉どうしのつながり
+  const freq = {}, pair = {};
+  (data||[]).forEach(c => {
+    const uniq = [...new Set(mixTokenize(c.body))].slice(0, 8);
+    uniq.forEach(w => freq[w] = (freq[w]||0) + 1);
+    for (let i=0;i<uniq.length;i++) for (let j=i+1;j<uniq.length;j++){
+      const k = [uniq[i], uniq[j]].sort().join("｜");
+      pair[k] = (pair[k]||0) + 1;
+    }
+  });
+  const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, 36);
+  const wordsSet = new Set(top.map(t=>t[0]));
+
+  $("mix-screen").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  $("mix-empty").classList.toggle("hidden", top.length > 0);
+  const nodesBox = $("mix-nodes");
+  nodesBox.innerHTML = "";
+  mixSelected = null;
+
+  const W = window.innerWidth, H = window.innerHeight;
+  const palette = [
+    ["rgba(78,139,132,.18)","#3E736D"],
+    ["rgba(184,169,144,.24)","#7d6f57"],
+    ["rgba(43,69,112,.14)","#2B4570"],
+    ["rgba(233,196,106,.28)","#8a6d1d"]
+  ];
+  mixNodes = top.map(([word,count],i) => {
+    const r = Math.min(16 + count*7 + word.length*2.4, 64);
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "mix-node";
+    el.textContent = word;
+    const [bg,fg] = palette[i % palette.length];
+    el.style.background = `linear-gradient(${bg},${bg}), rgba(255,255,255,.9)`;
+    el.style.color = fg;
+    el.style.height = (r*1.5) + "px";
+    el.style.fontSize = Math.min(.78 + count*.07, 1.15) + "rem";
+    nodesBox.appendChild(el);
+    const n = {
+      word, count, el, r,
+      x: W*0.2 + Math.random()*W*0.6,
+      y: H*0.25 + Math.random()*H*0.5,
+      vx: 0, vy: 0,
+      phase: Math.random()*Math.PI*2,
+      bob: 4 + Math.random()*5
+    };
+    el.onclick = () => mixSelect(n);
+    return n;
+  });
+  const idx = {}; mixNodes.forEach((n,i)=>idx[n.word]=i);
+  mixLinks = Object.entries(pair)
+    .map(([k,w]) => { const [a,b]=k.split("｜"); return {a:idx[a], b:idx[b], w}; })
+    .filter(l => l.a!=null && l.b!=null && wordsSet.has(mixNodes[l.a].word) && wordsSet.has(mixNodes[l.b].word));
+
+  mixNodes.forEach(n => { n.deg = 0; });
+  mixLinks.forEach(l => { mixNodes[l.a].deg++; mixNodes[l.b].deg++; });
+
+  const canvas = $("mix-canvas");
+  canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  let t = 0;
+  const step = () => {
+    t += 0.016;
+    // ちからの計算：反発・つながりの引力・中央へのゆるい引力
+    for (let i=0;i<mixNodes.length;i++){
+      const a = mixNodes[i];
+      a.vx += (W/2 - a.x) * 0.0004;
+      a.vy += (H/2 - a.y) * 0.0004;
+      for (let j=i+1;j<mixNodes.length;j++){
+        const b = mixNodes[j];
+        let dx = a.x-b.x, dy = a.y-b.y;
+        let d2 = dx*dx + dy*dy; if (d2 < 1) d2 = 1;
+        const d = Math.sqrt(d2);
+        const min = (a.r + b.r) * 1.15 + 26;
+        const f = d < min ? (min-d)*0.02 : 900/d2;
+        a.vx += dx/d*f; a.vy += dy/d*f;
+        b.vx -= dx/d*f; b.vy -= dy/d*f;
+      }
+    }
+    mixLinks.forEach(l => {
+      const a = mixNodes[l.a], b = mixNodes[l.b];
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const d = Math.sqrt(dx*dx+dy*dy) || 1;
+      const want = 130 + 40/(l.w);
+      const f = (d - want) * 0.0022 * Math.min(l.w, 3);
+      a.vx += dx/d*f; a.vy += dy/d*f;
+      b.vx -= dx/d*f; b.vy -= dy/d*f;
+    });
+    mixNodes.forEach(n => {
+      n.vx *= 0.86; n.vy *= 0.86;
+      n.x = Math.max(n.r+8, Math.min(W-n.r-8, n.x + n.vx));
+      n.y = Math.max(n.r+70, Math.min(H-n.r-24, n.y + n.vy));
+    });
+
+    // 線を描く（ゆるやかな曲線）
+    ctx.clearRect(0,0,W,H);
+    mixLinks.forEach(l => {
+      const a = mixNodes[l.a], b = mixNodes[l.b];
+      const lit = mixSelected && (a===mixSelected || b===mixSelected);
+      const dim = mixSelected && !lit;
+      ctx.strokeStyle = lit ? "rgba(78,139,132,.75)" : (dim ? "rgba(78,139,132,.06)" : "rgba(78,139,132,.28)");
+      ctx.lineWidth = Math.min(1 + l.w, 4) + (lit ? 1 : 0);
+      const ax = a.x, ay = a.y + Math.sin(t + a.phase)*a.bob;
+      const bx = b.x, by = b.y + Math.sin(t + b.phase)*b.bob;
+      const mx = (ax+bx)/2 + Math.sin(t*0.6 + a.phase)*12;
+      const my = (ay+by)/2 + Math.cos(t*0.5 + b.phase)*12;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(mx, my, bx, by);
+      ctx.stroke();
+    });
+
+    // 風船の位置（ふわふわ漂う）
+    mixNodes.forEach(n => {
+      const y = n.y + Math.sin(t + n.phase)*n.bob;
+      n.el.style.transform = `translate(${n.x}px, ${y}px) translate(-50%,-50%)`;
+    });
+
+    mixAnim = requestAnimationFrame(step);
+  };
+  cancelAnimationFrame(mixAnim);
+  step();
+}
+function mixSelect(n){
+  if (mixSelected === n){ mixSelected = null; }
+  else mixSelected = n;
+  const near = new Set();
+  if (mixSelected){
+    near.add(mixSelected);
+    mixLinks.forEach(l => {
+      if (mixNodes[l.a] === mixSelected) near.add(mixNodes[l.b]);
+      if (mixNodes[l.b] === mixSelected) near.add(mixNodes[l.a]);
+    });
+  }
+  mixNodes.forEach(x => {
+    x.el.classList.toggle("lit", mixSelected ? near.has(x) : false);
+    x.el.classList.toggle("dim", mixSelected ? !near.has(x) : false);
+  });
+}
+function closeMix(){
+  cancelAnimationFrame(mixAnim);
+  $("mix-screen").classList.add("hidden");
+  $("mix-nodes").innerHTML = "";
+  mixNodes = []; mixLinks = []; mixSelected = null;
+  if (document.querySelectorAll(".modal-back:not(.hidden)").length === 0) document.body.style.overflow = "";
+}
+
+/* =====================================================================
+   統計
+   ===================================================================== */
+function periodRange(p){
+  const d = new Date(); d.setHours(0,0,0,0);
+  if (p==="week"){ d.setDate(d.getDate()-6); return d; }
+  if (p==="month"){ d.setDate(d.getDate()-29); return d; }
+  if (p==="year"){ d.setFullYear(d.getFullYear()-1); d.setDate(d.getDate()+1); return d; }
+  return null;
+}
+async function renderStats(){
+  let q = sb.from(T_RECORDS).select(`date, amount, work_id, works:${T_WORKS}(name, category)`)
+    .eq("user_id", currentUser.id);
+  const from = periodRange(currentPeriod);
+  if (from) q = q.gte("date", dstr(from));
+  const { data, error } = await q.order("date",{ascending:true});
+  if (error){ console.error(error); return; }
+  const rows = (data||[]).map(r => ({
+    date:r.date, amount:r.amount,
+    name: r.works ? r.works.name : "（削除済）",
+    category: r.works ? r.works.category : "その他",
+    haiku: r.works ? r.works.category === "俳句" : false
+  }));
+
+  let charTotal=0, haikuTotal=0;
+  const charDays = new Set(), haikuDays = new Set();
+  rows.forEach(r => {
+    if (r.haiku){ haikuTotal += r.amount; haikuDays.add(r.date); }
+    else { charTotal += r.amount; charDays.add(r.date); }
+  });
+  $("st-char-total").innerHTML  = fmt(charTotal) + "<small>字</small>";
+  $("st-haiku-total").innerHTML = fmt(haikuTotal) + "<small>句</small>";
+  $("st-char-avg").innerHTML  = fmt(charDays.size ? Math.round(charTotal/charDays.size) : 0) + "<small>字</small>";
+  $("st-haiku-avg").innerHTML = fmt(haikuDays.size ? Math.round(haikuTotal*10/haikuDays.size)/10 : 0) + "<small>句</small>";
+
+  const byMonth = (currentPeriod==="year" || currentPeriod==="all");
+  const keyOf = d => byMonth ? d.slice(0,7) : d;
+  const buckets = {};
+  rows.forEach(r => {
+    const k = keyOf(r.date);
+    buckets[k] = buckets[k] || { c:0, h:0 };
+    if (r.haiku) buckets[k].h += r.amount; else buckets[k].c += r.amount;
+  });
+  let labels = [];
+  if (currentPeriod==="week" || currentPeriod==="month"){
+    const n = currentPeriod==="week" ? 7 : 30;
+    for (let i=n-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); labels.push(dstr(d)); }
+  } else if (currentPeriod==="year"){
+    for (let i=11;i>=0;i--){ const d=new Date(); d.setMonth(d.getMonth()-i); labels.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")); }
+  } else {
+    labels = Object.keys(buckets).sort();
+    if (!labels.length) labels = [ new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0") ];
+  }
+  const charData = labels.map(k => buckets[k]?.c || 0);
+  const haikuData = labels.map(k => buckets[k]?.h || 0);
+  const dispLabels = labels.map(k => byMonth ? k.replace("-","年")+"月" : k.slice(5).replace("-","/"));
+
+  try { await ensureChart(); } catch (_) { return; }
+  if (chart) chart.destroy();
+  chart = new Chart($("stat-chart"), {
+    type:"bar",
+    data:{ labels: dispLabels, datasets:[
+      { label:"文字数", data:charData, backgroundColor:"rgba(78,139,132,.8)", borderRadius:6, yAxisID:"y" },
+      { label:"句数", data:haikuData, type:"line", borderColor:"#2B4570", borderWidth:3,
+        fill:false, pointRadius:0, pointHoverRadius:4, pointBackgroundColor:"#2B4570",
+        tension:.3, yAxisID:"y2" }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:"index", intersect:false },
+      plugins:{ legend:{ labels:{ font:{ family:"'Zen Kaku Gothic New',sans-serif" } } } },
+      scales:{
+        x:{ ticks:{ maxTicksLimit: byMonth?12:10, font:{size:10} }, grid:{ display:false } },
+        y:{ beginAtZero:true, position:"left", grid:{ color:"rgba(58,66,63,.07)" },
+            ticks:{ font:{size:10}, callback: v => fmt(v) + "字" } },
+        y2:{ beginAtZero:true, position:"right", grid:{ drawOnChartArea:false },
+            ticks:{ precision:0, font:{size:10}, callback: v => fmt(v) + "句" } }
+      }
+    }
+  });
+
+  const byWork = {};
+  rows.forEach(r => {
+    const k = r.name + "｜" + r.category;
+    byWork[k] = byWork[k] || { name:r.name, category:r.category, total:0 };
+    byWork[k].total += r.amount;
+  });
+  const wArr = Object.values(byWork).sort((a,b)=>b.total-a.total);
+  $("by-work-empty").classList.toggle("hidden", wArr.length>0);
+  $("by-work-body").innerHTML = wArr.map(w => `<tr>
+      <td>${esc(w.name)}</td>
+      <td><span class="tag ${w.category==="俳句"?"tag-haiku":""}">${esc(w.category)}</span></td>
+      <td class="num">${fmt(w.total)} ${unitOf(w.category)}</td>
+    </tr>`).join("");
+
+  const byCat = {};
+  rows.forEach(r => { byCat[r.category] = (byCat[r.category]||0) + r.amount; });
+  const cArr = CATEGORIES.filter(c => byCat[c] != null).map(c => ({category:c, total:byCat[c]}));
+  Object.keys(byCat).forEach(c => { if(!CATEGORIES.includes(c)) cArr.push({category:c, total:byCat[c]}); });
+  $("by-cat-empty").classList.toggle("hidden", cArr.length>0);
+  $("by-cat-body").innerHTML = cArr.map(c => `<tr>
+      <td><span class="tag ${c.category==="俳句"?"tag-haiku":""}">${esc(c.category)}</span></td>
+      <td class="num">${fmt(c.total)} ${unitOf(c.category)}</td>
+    </tr>`).join("");
+}
+
+/* =====================================================================
+   管理（マスターのみ）
+   ===================================================================== */
+async function renderAdmin(){
+  if (!isMaster) return;
+  const [pRes, wRes, rRes, cRes] = await Promise.all([
+    sb.from(T_PROFILES).select("*").order("created_at",{ascending:true}),
+    sb.from(T_WORKS).select("id, user_id, category"),
+    sb.from(T_RECORDS).select(`user_id, amount, works:${T_WORKS}(category)`),
+    sb.from(T_COMMENTS).select("user_id")
+  ]);
+  if (pRes.error){
+    $("acc-list").innerHTML = "";
+    $("acc-empty").classList.remove("hidden");
+    console.error(pRes.error);
+    return;
+  }
+  const profiles = pRes.data || [], allWorks = wRes.data || [],
+        allRecs = rRes.data || [], allCms = cRes.data || [];
+
+  const stat = {};
+  const touch = u => stat[u] = stat[u] || { works:0, chars:0, haiku:0, comments:0 };
+  allWorks.forEach(w => { touch(w.user_id); stat[w.user_id].works++; });
+  allRecs.forEach(r => {
+    touch(r.user_id);
+    if (r.works && r.works.category === "俳句") stat[r.user_id].haiku += r.amount;
+    else stat[r.user_id].chars += r.amount;
+  });
+  allCms.forEach(c => { touch(c.user_id); stat[c.user_id].comments++; });
+
+  $("ad-users").textContent = fmt(profiles.length);
+  $("ad-works").textContent = fmt(allWorks.length);
+  $("ad-chars").innerHTML = fmt(Object.values(stat).reduce((a,s)=>a+s.chars,0)) + "<small>字</small>";
+  $("ad-haiku").innerHTML = fmt(Object.values(stat).reduce((a,s)=>a+s.haiku,0)) + "<small>句</small>";
+
+  $("acc-empty").classList.toggle("hidden", profiles.length>0);
+  $("acc-list").innerHTML = profiles.map(p => {
+    const s = stat[p.user_id] || { works:0, chars:0, haiku:0, comments:0 };
+    const self = p.user_id === currentUser.id;
+    return `<div class="acc-item">
+      <div class="acc-top">
+        <div style="min-width:0">
+          <div class="acc-mail">${esc(p.email || "（不明）")}
+            ${self ? `<span class="badge-self">自分</span>` : ""}
+            ${p.is_blocked ? `<span class="badge-stop">停止中</span>` : ""}
+          </div>
+          <div class="acc-meta">
+            <span>登録 ${dayStr(p.created_at)}</span>
+            <span>作品 ${fmt(s.works)}</span>
+            <span>コメント ${fmt(s.comments)}</span>
+          </div>
+          <div class="acc-stats">
+            <span>文字数 <b>${fmt(s.chars)}</b> 字</span>
+            <span>句数 <b>${fmt(s.haiku)}</b> 句</span>
+          </div>
+        </div>
+        <div class="work-actions">
+          ${self ? "" : `<button class="btn btn-ghost btn-sm" onclick="toggleBlock('${p.user_id}', ${p.is_blocked ? "false":"true"})">${p.is_blocked ? "再開する":"停止する"}</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function toggleBlock(userId, block){
+  const word = block ? "停止" : "再開";
+  if (!confirm(`このアカウントを${word}しますか？`)) return;
+  const { error } = await sb.from(T_PROFILES).update({ is_blocked: block }).eq("user_id", userId);
+  if (error){ alert("変更できませんでした：" + error.message); return; }
+  await renderAdmin();
 }
 </script>
 </body>
