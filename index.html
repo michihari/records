@@ -54,14 +54,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_FG4uMY7J89S77riOVb0K7w_ja_nXvgf";
 const MASTER_EMAIL = "michihari.natori.note@gmail.com";
 // 「全体」の平均を計算するときの起算日（記録を始めた日）。変更したい場合はここを書き換える
 const RECORD_START_DATE = "2026-07-13";
-const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "雑学"];
+const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "素養", "論文"];
+// 論文は「冊」に含めず「本」で数える
+const PAPER_GENRE = "論文";
+const fmtCount = (books, papers) => `${books}冊＋${papers}本`;
 const GENRE_COLORS = {
   "小説": "#2c4a6e",
   "紀行": "#3d5c46",
   "哲学": "#4a3d66",
   "俳句": "#6b5433",
   "詩": "#7a3b3b",
-  "雑学": "#365e63",
+  "素養": "#365e63",
+  "論文": "#8a6d1f",
   "未分類": "#78716c"
 };
 // ================================================================
@@ -222,10 +226,16 @@ function App() {
       error
     } = await sb.from("reading_data").select("data").eq("user_id", uid).maybeSingle();
     if (!error && row && row.data) {
-      setData({
+      const loaded = {
         ...emptyData,
         ...row.data
-      });
+      };
+      // 旧ジャンル名「雑学」は「素養」に読み替える
+      loaded.books = (loaded.books || []).map(b => b.genre === "雑学" ? {
+        ...b,
+        genre: "素養"
+      } : b);
+      setData(loaded);
     } else {
       setData(emptyData);
       if (error) {
@@ -650,14 +660,15 @@ function App() {
   const genreStats = useMemo(() => {
     const stats = {};
     const ensure = g => {
-      if (!stats[g]) stats[g] = { genre: g, books: 0, pages: 0 };
+      if (!stats[g]) stats[g] = { genre: g, books: 0, papers: 0, pages: 0 };
       return stats[g];
     };
-    // 6ジャンルは記録がなくても必ず表示する
+    // 全ジャンルは記録がなくても必ず表示する
     GENRES.forEach(g => ensure(g));
     data.books.forEach(b => {
       if ((b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod)) {
-        ensure(b.genre || "未分類").books += 1;
+        if (b.genre === PAPER_GENRE) ensure(PAPER_GENRE).papers += 1;
+        else ensure(b.genre || "未分類").books += 1;
       }
     });
     data.sessions.forEach(s => {
@@ -666,7 +677,7 @@ function App() {
       ensure(book ? book.genre || "未分類" : "未分類").pages += s.pages;
     });
     return Object.values(stats)
-      .filter(x => GENRES.includes(x.genre) || x.books > 0 || x.pages > 0)
+      .filter(x => GENRES.includes(x.genre) || x.books > 0 || x.papers > 0 || x.pages > 0)
       .sort((a, b) => {
         const ia = GENRES.indexOf(a.genre), ib = GENRES.indexOf(b.genre);
         if (ia === -1 && ib === -1) return 0;
@@ -677,6 +688,8 @@ function App() {
   }, [data.books, data.sessions, selectedPeriod]);
 
   const periodPages = genreStats.reduce((a, g) => a + g.pages, 0);
+  const finishedPapers = finishedInPeriod.filter(b => b.genre === PAPER_GENRE).length;
+  const finishedBooksOnly = finishedInPeriod.length - finishedPapers;
   const fmtPeriod = p => p === "" ? "全期間" : p.length === 7 ? `${p.slice(0, 4)}年${Number(p.slice(5, 7))}月` : `${p}年`;
   const bookPages = bookId => data.sessions.filter(s => s.bookId === bookId).reduce((a, s) => a + s.pages, 0);
   const searchResults = useMemo(() => {
@@ -966,7 +979,7 @@ function App() {
     className: "flex items-center justify-between mb-3 flex-wrap gap-2"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "font-bold text-stone-700"
-  }, "登録済みの本（", data.books.length, "冊）"), /*#__PURE__*/React.createElement("div", {
+  }, "登録済みの本（", fmtCount(data.books.filter(b => b.genre !== PAPER_GENRE).length, data.books.filter(b => b.genre === PAPER_GENRE).length), "）"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
   }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
@@ -1237,9 +1250,7 @@ function App() {
     className: "text-xs text-emerald-700"
   }, "読了した本"), /*#__PURE__*/React.createElement("div", {
     className: "text-xl font-bold text-emerald-800"
-  }, finishedInPeriod.length, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal ml-1"
-  }, "冊"))), /*#__PURE__*/React.createElement("div", {
+  }, fmtCount(finishedBooksOnly, finishedPapers))), /*#__PURE__*/React.createElement("div", {
     className: "bg-slate-50 rounded-lg px-3 py-2.5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-stone-500"
@@ -1277,7 +1288,7 @@ function App() {
     className: "space-y-2.5"
   }, genreStats.map(g => /*#__PURE__*/React.createElement("li", {
     key: g.genre,
-    className: g.pages === 0 && g.books === 0 ? "opacity-40" : ""
+    className: g.pages === 0 && g.books === 0 && g.papers === 0 ? "opacity-40" : ""
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between text-sm mb-1"
   }, /*#__PURE__*/React.createElement("span", {
@@ -1291,7 +1302,7 @@ function App() {
     className: "text-stone-600"
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-bold text-slate-800"
-  }, g.books), "冊 ・ ", /*#__PURE__*/React.createElement("span", {
+  }, g.genre === PAPER_GENRE ? g.papers : g.books), g.genre === PAPER_GENRE ? "本 ・ " : "冊 ・ ", /*#__PURE__*/React.createElement("span", {
     className: "font-bold text-slate-800"
   }, g.pages), "ページ")), /*#__PURE__*/React.createElement("div", {
     className: "h-2 bg-stone-200 rounded-full overflow-hidden"
