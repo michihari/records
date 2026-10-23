@@ -58,6 +58,14 @@ const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "素養", "論文
 // 論文は「冊」に含めず「本」で数える
 const PAPER_GENRE = "論文";
 const fmtCount = (books, papers) => `${books}冊＋${papers}本`;
+// 読書の状態: 読書中 / 読了 / 二周目以降
+const STATUSES = [["reading", "読書中"], ["finished", "読了"], ["reread", "二周目以降"]];
+const STATUS_LABEL = { reading: "読書中", finished: "読了", reread: "二周目以降" };
+const STATUS_BADGE = {
+  reading: "bg-amber-100 text-amber-700",
+  finished: "bg-emerald-100 text-emerald-700",
+  reread: "bg-violet-100 text-violet-700"
+};
 const GENRE_COLORS = {
   "小説": "#2c4a6e",
   "紀行": "#3d5c46",
@@ -485,14 +493,24 @@ function App() {
     });
     setEditingBook(false);
   };
-  const setBookStatus = (id, status) => save({
-    ...data,
-    books: data.books.map(b => b.id === id ? {
-      ...b,
-      status,
-      finishedDate: status === "finished" ? todayStr() : null
-    } : b)
-  });
+  const setBookStatus = (id, status) => {
+    const target = data.books.find(b => b.id === id);
+    if (!target || (target.status || "reading") === status) return;
+    save({
+      ...data,
+      books: data.books.map(b => {
+        if (b.id !== id) return b;
+        const cur = b.status || "reading";
+        let finishedDate = b.finishedDate || null;
+        if (status === "finished") finishedDate = finishedDate || todayStr();else if (status === "reading" && cur === "finished") finishedDate = null;
+        return {
+          ...b,
+          status,
+          finishedDate
+        };
+      })
+    });
+  };
 
   // ---- 管理（マスターのみ） ----
   const loadAccounts = async () => {
@@ -651,7 +669,7 @@ function App() {
   // 選択中の期間に読了した本（新しい順）
   const finishedInPeriod = useMemo(() => {
     return data.books
-      .filter(b => (b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod))
+      .filter(b => ["finished", "reread"].includes(b.status || "reading") && b.finishedDate && b.finishedDate.startsWith(selectedPeriod))
       .slice()
       .sort((a, b) => b.finishedDate.localeCompare(a.finishedDate));
   }, [data.books, selectedPeriod]);
@@ -666,7 +684,7 @@ function App() {
     // 全ジャンルは記録がなくても必ず表示する
     GENRES.forEach(g => ensure(g));
     data.books.forEach(b => {
-      if ((b.status || "reading") === "finished" && b.finishedDate && b.finishedDate.startsWith(selectedPeriod)) {
+      if (["finished", "reread"].includes(b.status || "reading") && b.finishedDate && b.finishedDate.startsWith(selectedPeriod)) {
         if (b.genre === PAPER_GENRE) ensure(PAPER_GENRE).papers += 1;
         else ensure(b.genre || "未分類").books += 1;
       }
@@ -704,6 +722,7 @@ function App() {
   const filteredBooks = data.books.filter(b => shelfFilter === "all" ? true : (b.status || "reading") === shelfFilter);
   const readingCount = data.books.filter(b => (b.status || "reading") === "reading").length;
   const finishedCount = data.books.filter(b => (b.status || "reading") === "finished").length;
+  const rereadCount = data.books.filter(b => (b.status || "reading") === "reread").length;
   const loggableBooks = data.books.filter(b => (b.status || "reading") !== "finished");
   if (!loaded) {
     return /*#__PURE__*/React.createElement("div", {
@@ -981,7 +1000,7 @@ function App() {
     className: "font-bold text-stone-700"
   }, "登録済みの本（", fmtCount(data.books.filter(b => b.genre !== PAPER_GENRE).length, data.books.filter(b => b.genre === PAPER_GENRE).length), "）"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
-  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`], ["reread", `二周目以降 ${rereadCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
     onClick: () => setShelfFilter(id),
     className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${shelfFilter === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-100"}`
@@ -1012,8 +1031,8 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "font-semibold truncate"
     }, b.title), /*#__PURE__*/React.createElement("span", {
-      className: `shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${status === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-    }, status === "finished" ? "読了" : "読書中")), /*#__PURE__*/React.createElement("div", {
+      className: `shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_BADGE[status] || STATUS_BADGE.reading}`
+    }, STATUS_LABEL[status] || "読書中")), /*#__PURE__*/React.createElement("div", {
       className: "text-sm text-stone-500 truncate"
     }, b.author, ` ・ ${b.genre || "未分類"}`)), /*#__PURE__*/React.createElement("div", {
       className: "text-right shrink-0"
@@ -1080,13 +1099,16 @@ function App() {
   }, "編集")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center flex-wrap gap-2 mt-2"
   }, /*#__PURE__*/React.createElement("span", {
-    className: `text-xs font-semibold px-2 py-0.5 rounded ${(selectedBook.status || "reading") === "finished" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-  }, (selectedBook.status || "reading") === "finished" ? "読了" : "読書中"), (selectedBook.status || "reading") === "finished" && selectedBook.finishedDate && /*#__PURE__*/React.createElement("span", {
+    className: `text-xs font-semibold px-2 py-0.5 rounded ${STATUS_BADGE[selectedBook.status || "reading"] || STATUS_BADGE.reading}`
+  }, STATUS_LABEL[selectedBook.status || "reading"] || "読書中"), (selectedBook.status === "finished" || selectedBook.status === "reread") && selectedBook.finishedDate && /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-stone-400"
-  }, fmtDate(selectedBook.finishedDate), "に読了"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setBookStatus(selectedBook.id, (selectedBook.status || "reading") === "finished" ? "reading" : "finished"),
-    className: `text-xs font-semibold px-2.5 py-1 rounded-lg border ${(selectedBook.status || "reading") === "finished" ? "border-stone-300 text-stone-600 hover:bg-stone-50" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`
-  }, (selectedBook.status || "reading") === "finished" ? "読書中に戻す" : "読了にする")), /*#__PURE__*/React.createElement("div", {
+  }, fmtDate(selectedBook.finishedDate), "に読了")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5 mt-2"
+  }, STATUSES.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setBookStatus(selectedBook.id, id),
+    className: `text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${(selectedBook.status || "reading") === id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-stone-600 border-stone-300 hover:bg-stone-100"}`
+  }, label))), /*#__PURE__*/React.createElement("div", {
     className: "mt-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-stone-500 mb-1.5"
