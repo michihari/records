@@ -59,12 +59,13 @@ const GENRES = ["小説", "紀行", "哲学", "俳句", "詩", "素養", "論文
 const PAPER_GENRE = "論文";
 const fmtCount = (books, papers) => `${books}冊＋${papers}本`;
 // 読書の状態: 読書中 / 読了 / 二周目以降
-const STATUSES = [["reading", "読書中"], ["finished", "読了"], ["reread", "二周目以降"]];
-const STATUS_LABEL = { reading: "読書中", finished: "読了", reread: "二周目以降" };
+const STATUSES = [["reading", "読書中"], ["finished", "読了"], ["reread", "二周目以降"], ["skim", "ざく読み"]];
+const STATUS_LABEL = { reading: "読書中", finished: "読了", reread: "二周目以降", skim: "ざく読み" };
 const STATUS_BADGE = {
   reading: "bg-amber-100 text-amber-700",
   finished: "bg-emerald-100 text-emerald-700",
-  reread: "bg-violet-100 text-violet-700"
+  reread: "bg-violet-100 text-violet-700",
+  skim: "bg-sky-100 text-sky-700"
 };
 const GENRE_COLORS = {
   "小説": "#2c4a6e",
@@ -210,7 +211,7 @@ function App() {
   const [tab, setTab] = useState("log");
   const [selectedBookId, setSelectedBookId] = useState(null);
   const [logBookId, setLogBookId] = useState("");
-  const [startPage, setStartPage] = useState("");
+  const [startPage, setStartPage] = useState(null); // null = 未編集（前回の読み終わりを自動表示）
   const [endPage, setEndPage] = useState("");
   const [logMsg, setLogMsg] = useState("");
   const [goalInput, setGoalInput] = useState("");
@@ -388,9 +389,24 @@ function App() {
     setNewTitle("");
     setNewAuthor("");
   };
+  // その本の直近の記録の「読み終わり」ページ（記録がなければ null）
+  const lastEndPage = bookId => {
+    let best = null;
+    data.sessions.forEach(x => {
+      if (x.bookId !== bookId) return;
+      if (!best || x.date > best.date || x.date === best.date && Number(x.id) >= Number(best.id)) best = x;
+    });
+    return best ? best.endPage : null;
+  };
+  // 読み始め欄に表示する値（手入力があればそれ、なければ前回の読み終わり）
+  const startValueFor = bookId => {
+    if (startPage !== null) return startPage;
+    const le = lastEndPage(bookId);
+    return le === null ? "" : String(le);
+  };
   const addSession = bookIdArg => {
     const bookId = bookIdArg || logBookId;
-    const s = parseInt(startPage, 10);
+    const s = parseInt(startValueFor(bookId), 10);
     const e = parseInt(endPage, 10);
     if (!bookId) {
       setLogMsg("本を選んでください");
@@ -417,7 +433,7 @@ function App() {
       ...data,
       sessions: [...data.sessions, session]
     });
-    setStartPage("");
+    setStartPage(null);
     setEndPage("");
     const book = data.books.find(b => b.id === bookId);
     setLogMsg(`「${book ? book.title : ""}」を ${pages} ページ読みました`);
@@ -723,6 +739,7 @@ function App() {
   const readingCount = data.books.filter(b => (b.status || "reading") === "reading").length;
   const finishedCount = data.books.filter(b => (b.status || "reading") === "finished").length;
   const rereadCount = data.books.filter(b => (b.status || "reading") === "reread").length;
+  const skimCount = data.books.filter(b => (b.status || "reading") === "skim").length;
   const loggableBooks = data.books.filter(b => (b.status || "reading") !== "finished");
   if (!loaded) {
     return /*#__PURE__*/React.createElement("div", {
@@ -854,7 +871,12 @@ function App() {
     className: "block text-sm text-stone-600 mb-1"
   }, "本を選ぶ"), /*#__PURE__*/React.createElement("select", {
     value: logBookId,
-    onChange: e => setLogBookId(e.target.value),
+    onChange: e => {
+      setLogBookId(e.target.value);
+      setStartPage(null);
+      setEndPage("");
+      setLogMsg("");
+    },
     className: "w-full border border-stone-300 rounded-lg px-3 py-2 bg-white"
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
@@ -868,11 +890,13 @@ function App() {
   }, "読み始め"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
-    value: startPage,
+    value: startValueFor(logBookId),
     onChange: e => setStartPage(e.target.value),
     placeholder: "例: 24",
     className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }), lastEndPage(logBookId) !== null && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-stone-400 mt-1"
+  }, "前回の読み終わり: p.", lastEndPage(logBookId))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm text-stone-600 mb-1"
   }, "読み終わり"), /*#__PURE__*/React.createElement("input", {
     type: "number",
@@ -881,11 +905,11 @@ function App() {
     onChange: e => setEndPage(e.target.value),
     placeholder: "例: 58",
     className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  }))), startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && /*#__PURE__*/React.createElement("p", {
+  }))), startValueFor(logBookId) !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startValueFor(logBookId)) && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2"
   }, "この記録で ", /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, parseInt(endPage) - parseInt(startPage)), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
+  }, parseInt(endPage) - parseInt(startValueFor(logBookId))), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
     onClick: () => addSession(),
     className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
   }, "＋ 記録を保存"), logMsg && /*#__PURE__*/React.createElement("p", {
@@ -999,8 +1023,8 @@ function App() {
   }, /*#__PURE__*/React.createElement("h2", {
     className: "font-bold text-stone-700"
   }, "登録済みの本（", fmtCount(data.books.filter(b => b.genre !== PAPER_GENRE).length, data.books.filter(b => b.genre === PAPER_GENRE).length), "）"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
-  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`], ["reread", `二周目以降 ${rereadCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    className: "flex flex-wrap gap-1"
+  }, [["all", `すべて ${data.books.length}`], ["reading", `読書中 ${readingCount}`], ["finished", `読了 ${finishedCount}`], ["reread", `二周目以降 ${rereadCount}`], ["skim", `ざく読み ${skimCount}`]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
     onClick: () => setShelfFilter(id),
     className: `px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${shelfFilter === id ? "bg-slate-900 text-white" : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-100"}`
@@ -1017,6 +1041,9 @@ function App() {
       onClick: () => {
         setSelectedBookId(b.id);
         setEditingBook(false);
+        setStartPage(null);
+        setEndPage("");
+        setLogMsg("");
       },
       className: "bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow w-full"
     }, /*#__PURE__*/React.createElement("span", {
@@ -1049,6 +1076,8 @@ function App() {
     onClick: () => {
       setSelectedBookId(null);
       setEditingBook(false);
+      setStartPage(null);
+      setEndPage("");
     },
     className: "text-sm text-slate-600 hover:text-slate-900"
   }, "← 本棚に戻る"), /*#__PURE__*/React.createElement("section", {
@@ -1103,7 +1132,7 @@ function App() {
   }, STATUS_LABEL[selectedBook.status || "reading"] || "読書中"), (selectedBook.status === "finished" || selectedBook.status === "reread") && selectedBook.finishedDate && /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-stone-400"
   }, fmtDate(selectedBook.finishedDate), "に読了")), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5 mt-2"
+    className: "flex flex-wrap gap-1.5 mt-2"
   }, STATUSES.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
     onClick: () => setBookStatus(selectedBook.id, id),
@@ -1134,11 +1163,13 @@ function App() {
   }, "読み始め"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
-    value: startPage,
+    value: startValueFor(selectedBook.id),
     onChange: e => setStartPage(e.target.value),
     placeholder: "例: 24",
     className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }), lastEndPage(selectedBook.id) !== null && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-stone-400 mt-1"
+  }, "前回の読み終わり: p.", lastEndPage(selectedBook.id))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-sm text-stone-600 mb-1"
   }, "読み終わり"), /*#__PURE__*/React.createElement("input", {
     type: "number",
@@ -1147,11 +1178,11 @@ function App() {
     onChange: e => setEndPage(e.target.value),
     placeholder: "例: 58",
     className: "w-full border border-stone-300 rounded-lg px-3 py-2"
-  }))), startPage !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startPage) && /*#__PURE__*/React.createElement("p", {
+  }))), startValueFor(selectedBook.id) !== "" && endPage !== "" && parseInt(endPage) >= parseInt(startValueFor(selectedBook.id)) && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 mb-3"
   }, "この記録で ", /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, parseInt(endPage) - parseInt(startPage)), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
+  }, parseInt(endPage) - parseInt(startValueFor(selectedBook.id))), " ページ読んだことになります"), /*#__PURE__*/React.createElement("button", {
     onClick: () => addSession(selectedBook.id),
     className: "w-full bg-slate-900 text-white rounded-lg py-2.5 font-semibold hover:bg-slate-700 transition-colors"
   }, "＋ 記録を保存"), logMsg && /*#__PURE__*/React.createElement("p", {
